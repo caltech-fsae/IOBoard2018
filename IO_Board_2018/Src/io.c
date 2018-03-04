@@ -9,7 +9,10 @@
 #include "io.h"
 #include "adc.h"
 
-/*void readApps(uint16_t* apps1, uint16_t* apps2) {
+
+// #--------------------------# READ ADC FUNCTIONS #---------------------------#
+
+void readApps(uint16_t* apps1, uint16_t* apps2, ADC_HandleTypeDef hadc3) {
     HAL_ADC_Start(&hadc3);
 
     // Poll the entire ADC2 group for conversion
@@ -23,140 +26,158 @@
 
     HAL_ADC_Stop(&hadc3);
 }
-*/
-void readBse(uint32_t* bse1, uint32_t* bse2) {
+
+
+void readBse(uint16_t* bse1, uint16_t* bse2, ADC_HandleTypeDef hadc1) {
     HAL_ADC_Start(&hadc1);
 
     // Poll the entire ADC1 group for conversion
     if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
         // Read BSE1
-        *bse1 = HAL_ADC_GetValue(&hadc1);
+        bse1 = HAL_ADC_GetValue(&hadc1);
         HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
         // Read BSE2
-        *bse2 = HAL_ADC_GetValue(&hadc1);
+        bse2 = HAL_ADC_GetValue(&hadc1);
     }
 
     HAL_ADC_Stop(&hadc1);
 }
 
-/*void readCurrSensor(uint32_t* currSensor) {
+
+void readCurr(uint16_t* currSensor, ADC_HandleTypeDef hadc2) {
     HAL_ADC_Start(&hadc2);
     if (HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY) == HAL_OK) {
         *currSensor = HAL_ADC_GetValue(&hadc2);
     HAL_ADC_Stop(&hadc2);
 }
-*/
-uint16_t ADC1_read()
-{
-	/* Samples the ADC1 and returns the value as a uint16_t. Returns FFFF if error */
-	/* Must configure "End of Conversion Selection" to
-	 * "EOC flag at the end of all conversions" in CubeMX (ADC1 menu) */
 
-	uint16_t ok;
-	uint16_t adc_value = 0xFFFF;
-	HAL_ADC_Start(&hadc1);
-	ok = HAL_ADC_PollForConversion(&hadc1, 1000000);
-	if (ok == HAL_OK)
-	{
-		adc_value = HAL_ADC_GetValue(&hadc1);
-	}
-	HAL_ADC_Stop(&hadc1);
 
-	return adc_value;
+// #-------------------------# PROCESSING FUNCTIONS #--------------------------#
+
+
+// Filter a single APPS reading
+void filterApps(uint16_t* prevApps, uint16_t* apps) {
+    // Compute new value - if there is a huge difference, then assert the
+    // previous value but store it so that it can be compared with the
+    // reading from the next iteration. Else, the new value goes through.
+    *apps = (abs(*apps - *prevApps) > APPS_VAL_THRESH)
+        ? *prevApps : *apps;
+
+    // Update old value for next iteration
+    *prevApps = *apps;
 }
 
-void adcInit()
-{
 
+// Filter a single BSE reading
+void filterBse(uint16_t* prevBse, uint16_t* bse) {
+    // Compute new value - if there is a huge difference, then assert the
+    // previous value but store it so that it can be compared with the
+    // reading from the next iteration. Else, the new value goes through.
+    *bse = (abs(*bse - *prevBse) > BSE_VAL_THRESH)
+        ? *prevBse : *bse;
+
+    // Update old value for next iteration
+    *prevBse = *bse;
+}
+
+
+// Filters the current sensor reading
+void filterCurr(uint16_t* prevCurr, uint16_t* curr) {
+    // Compute new value - if there is a huge difference, then assert the
+    // previous value but store it so that it can be compared with the
+    // reading from the next iteration. Else, the new value goes through.
+    *curr = (abs(*curr - *prevCurr) > CURRSENSE_VAL_THRESH)
+        ? *prevCurr : *curr;
+
+    // Update old value for next iteration
+    *prevCurr = *curr;
+}
+
+// #-------------------------# DIGITAL READ FUNCTIONS #--------------------------#
+
+int bspdStatus() {
+    return (HAL_GPIO_ReadPin(LED_PINS_GROUP, BSPD_PIN) == LO);
+}
+
+int fltStatus(){
+    return (HAL_GPIO_ReadPin(FLT_PIN_GROUP, FLT_PIN) == LO);
+}
+
+int fltNrStatus(){
+    return (HAL_GPIO_ReadPin(FLT_PINS_GROUP, FLT_NR_PIN) == LO);
+}
+
+// APPS plausibility check fault - if difference exceeds 10% (
+// (currently, percent error computed either way)
+int appsStatus(uint16_t* apps1, uint16_t* apps2) {
+    return (( abs(*apps1 - *apps2) / *apps1) > APPS_DIFF_THRESH) ||
+           (( abs(*apps1 - *apps2) / *apps2) > APPS_DIFF_THRESH);
+}
+
+// BSE plausibility check (not a fault in the rules, but same idea. Something
+// that core board should know)
+int bseStatus(uint16_t* bse1, uint16_t* bse2) {
+    return (( abs(*bse1 - *bse2) / *bse1) > BSE_DIFF_THRESH) ||
+           (( abs(*bse1 - *bse2) / *bse2) > BSE_DIFF_THRESH);
+}
+
+// BPPC fault - currently: if either accelerator sensor reads > 25% and either
+// brake sensor is "actuated"
+int bppcStatus(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2) {
+    return ( (*apps1 > BPPC_QTR_THROTTLE) || (*apps2 > BPPC_QTR_THROTTLE) ) &&
+           ( (*bse1 > BPPC_BRK_THRESH) || (*bse2 > BPPC_BRK_THRESH) );
 }
 
 void clearFaultLEDs()
 {
-	HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, LOW);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, LOW);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, LOW);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, LOW);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, LOW);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, LOW);
+	HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, LO);
+	HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, LO);
+	HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, LO);
+	HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, LO);
+	HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, LO);
+	HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, LO);
 }
 
 void displayFaultLEDs()
 {
 	/* BSPD LED */
 	if (bspdStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, HIGH);
+		HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, HI);
 	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, LOW);
+		HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, LO);
 	/* APPS LED */
-	if (appsMSMStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, HIGH);
+	if (appsStatus())
+		HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, HI);
 	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, LOW);
+		HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, LO);
 	/* BSE LED */
-	if (bseMSMStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, HIGH);
+	if (bseStatus())
+		HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, HI);
 	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, LOW);
+		HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, LO);
 	/* BPPC LED */
 	if (bppcStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, HIGH);
+		HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, HI);
 	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, LOW);
+		HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, LO);
 	/* FLT LED */
 	if (fltStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, HIGH);
+		HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, HI);
 	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, LOW);
+		HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, LO);
 	/* FLTNR LED */
-	if (fltnrStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, HIGH);
+	if (fltNrStatus())
+		HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, HI);
 	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, LOW);
-
+		HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, LO);
 }
 
-void assertFLT()
+void assertMcuFlt()
 {
-	HAL_GPIO_WritePin(FLT_PIN_GROUP, FLT_PIN, HIGH);
+	HAL_GPIO_WritePin(FLT_PINS_GROUP, MCU_FLT_PIN, HI);
 }
 
-void resetFLT()
+void resetMcuFlt()
 {
-	HAL_GPIO_WritePin(FLT_PIN_GROUP, FLT_PIN, LOW);
-}
-
-int appsMSMStatus()
-{
-	//int apps1;
-	//int apps2;
-
-	return 0;
-}
-
-int bseMSMStatus()
-{
-	//int bse1;
-	//int bse2;
-
-	return 0;
-}
-
-int bppcStatus()
-{
-	return 0;
-}
-
-int fltStatus()
-{
-	return 0;
-}
-
-int fltnrStatus()
-{
-	return 0;
-}
-
-int bspdStatus()
-{
-	return !HAL_GPIO_ReadPin(BSPD_PIN_GROUP, BSPD_PIN);
+	HAL_GPIO_WritePin(FLT_PINS_GROUP, MCU_FLT_PIN, LO);
 }
