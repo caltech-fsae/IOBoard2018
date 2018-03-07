@@ -43,8 +43,8 @@
 #define BPPC_QTR_THROTTLE       300         // 25% of pedal travel reading
 #define BPPC_BRK_THRESH         100         // Is braking
 
-#define APPS_DIFF_THRESH        0.1
-#define BSE_DIFF_THRESH         0.1
+#define APPS_DIFF_THRESH        0.1			// As a fraction of 1
+#define BSE_DIFF_THRESH         0.1			// As a fraction of 1
 
 #endif /* IO_H_ */
 
@@ -64,6 +64,6 @@ int bseStatus(uint16_t* bse1, uint16_t* bse2);
 int bppcStatus(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2);
 
 void clearFaultLEDs();
-void displayFaultLEDs();
+void displayFaultLEDs(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2);
 void assertMcuFlt();
 void resetMcuFlt();

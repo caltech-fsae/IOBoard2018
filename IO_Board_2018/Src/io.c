@@ -46,7 +46,7 @@ void readBse(uint16_t* bse1, uint16_t* bse2, ADC_HandleTypeDef hadc1) {
 
 void readCurr(uint16_t* currSensor, ADC_HandleTypeDef hadc2) {
     HAL_ADC_Start(&hadc2);
-    if (HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY) == HAL_OK) {
+    if (HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY) == HAL_OK)
         *currSensor = HAL_ADC_GetValue(&hadc2);
     HAL_ADC_Stop(&hadc2);
 }
@@ -100,7 +100,7 @@ int bspdStatus() {
 }
 
 int fltStatus(){
-    return (HAL_GPIO_ReadPin(FLT_PIN_GROUP, FLT_PIN) == LO);
+    return (HAL_GPIO_ReadPin(FLT_PINS_GROUP, FLT_PIN) == LO);
 }
 
 int fltNrStatus(){
@@ -138,7 +138,7 @@ void clearFaultLEDs()
 	HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, LO);
 }
 
-void displayFaultLEDs()
+void displayFaultLEDs(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2)
 {
 	/* BSPD LED */
 	if (bspdStatus())
@@ -146,17 +146,17 @@ void displayFaultLEDs()
 	else
 		HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, LO);
 	/* APPS LED */
-	if (appsStatus())
+	if (appsStatus(apps1, apps2))
 		HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, HI);
 	else
 		HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, LO);
 	/* BSE LED */
-	if (bseStatus())
+	if (bseStatus(bse1, bse2))
 		HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, HI);
 	else
 		HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, LO);
 	/* BPPC LED */
-	if (bppcStatus())
+	if (bppcStatus(apps1, apps2, bse1, bse2))
 		HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, HI);
 	else
 		HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, LO);
@@ -181,3 +181,4 @@ void resetMcuFlt()
 {
 	HAL_GPIO_WritePin(FLT_PINS_GROUP, MCU_FLT_PIN, LO);
 }
+

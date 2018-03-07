@@ -132,21 +132,21 @@ int main(void)
 
 	  readApps(&apps1, &apps2, hadc3);
 	  readBse(&bse1, &bse2, hadc1);
-	  readCurrSensor(&curr, hadc2);
+	  readCurr(&curr, hadc2);
 
-	  filterApps(&oldApps1, &apps1);
-	  filterApps(&oldApps2, &apps2);
-	  filterBse(&oldBse1, &bse1);
-	  filterBse(&oldBse2, &bse2);
-	  filterCurr(&oldCurr, &curr);
-	  displayFaultLEDs();
+	  //filterApps(&oldApps1, &apps1);
+	  //filterApps(&oldApps2, &apps2);
+	  //filterBse(&oldBse1, &bse1);
+	  //filterBse(&oldBse2, &bse2);
+	  //filterCurr(&oldCurr, &curr);
+	  displayFaultLEDs(&apps1, &apps2, &bse1, &bse2);
 
-
+	  HAL_Delay(100);
+  }
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	 HAL_Delay(100);
-  }
+
   /* USER CODE END 3 */
 
 }
