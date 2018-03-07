@@ -43,6 +43,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "io.h"
+#include "scheduler.h"
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
@@ -114,6 +115,12 @@ int main(void)
   /* USER CODE BEGIN 2 */
   resetMcuFlt();
   clearFaultLEDs();
+
+  Schedule schedule;
+  MakeSchedule(&schedule, 3);
+  AddTask(&schedule, &mainLoop, 100);
+  AddTask(&schedule, &checkCANMessages, 1);
+  AddTask(&schedule, &sendHeartbeat, 100);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -138,7 +145,7 @@ int main(void)
 	  //filterApps(&oldApps2, &apps2);
 	  //filterBse(&oldBse1, &bse1);
 	  //filterBse(&oldBse2, &bse2);
-	  //filterCurr(&oldCurr, &curr);
+	  filterCurr(&oldCurr, &curr);
 	  displayFaultLEDs(&apps1, &apps2, &bse1, &bse2);
 
 	  HAL_Delay(100);
@@ -146,7 +153,7 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
+  DeleteSchedule(schedule);
   /* USER CODE END 3 */
 
 }

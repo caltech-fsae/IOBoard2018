@@ -9,16 +9,26 @@
 #include "io.h"
 #include "adc.h"
 
+// Global Variables
+/*struct faults_t {
+	uint16_t lv_battery_fault;	// set battery fault
+	uint16_t interlock_in_fault;
+	uint16_t flt_fault;
+	uint16_t flt_nr_fault;
+	uint16_t imd_fault;
+	uint16_t ams_fault;
+	uint16_t bspd_fault;
+} faults;*/
 
 // #--------------------------# READ ADC FUNCTIONS #---------------------------#
 
 void readApps(uint16_t* apps1, uint16_t* apps2, ADC_HandleTypeDef hadc3) {
     HAL_ADC_Start(&hadc3);
 
-    // Poll the entire ADC2 group for conversion
+    // Poll the entire ADC3 group for conversion
     if (HAL_ADC_PollForConversion(&hadc3, HAL_MAX_DELAY) == HAL_OK) {
         // Read APPS1
-        *apps1 = (&hadc3);
+        *apps1 = HAL_ADC_GetValue(&hadc3);
         HAL_ADC_PollForConversion(&hadc3, HAL_MAX_DELAY);
         // Read APPS2
         *apps2 = HAL_ADC_GetValue(&hadc3);
@@ -34,10 +44,10 @@ void readBse(uint16_t* bse1, uint16_t* bse2, ADC_HandleTypeDef hadc1) {
     // Poll the entire ADC1 group for conversion
     if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
         // Read BSE1
-        bse1 = HAL_ADC_GetValue(&hadc1);
+        *bse1 = HAL_ADC_GetValue(&hadc1);
         HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
         // Read BSE2
-        bse2 = HAL_ADC_GetValue(&hadc1);
+        *bse2 = HAL_ADC_GetValue(&hadc1);
     }
 
     HAL_ADC_Stop(&hadc1);
@@ -60,11 +70,11 @@ void filterApps(uint16_t* prevApps, uint16_t* apps) {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-    *apps = (abs(*apps - *prevApps) > APPS_VAL_THRESH)
-        ? *prevApps : *apps;
-
-    // Update old value for next iteration
-    *prevApps = *apps;
+	uint16_t newApps = *apps;
+	if (abs(*apps - *prevApps) > APPS_VAL_THRESH)
+		*apps = *prevApps;
+	// Update old value for next iteration
+	*prevApps = newApps;
 }
 
 
@@ -73,11 +83,11 @@ void filterBse(uint16_t* prevBse, uint16_t* bse) {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-    *bse = (abs(*bse - *prevBse) > BSE_VAL_THRESH)
-        ? *prevBse : *bse;
-
+	uint16_t newBse = *bse;
+	if (abs(*bse - *prevBse) > BSE_VAL_THRESH)
+        *bse = prevBse;
     // Update old value for next iteration
-    *prevBse = *bse;
+    *prevBse = newBse;
 }
 
 
@@ -86,11 +96,11 @@ void filterCurr(uint16_t* prevCurr, uint16_t* curr) {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-    *curr = (abs(*curr - *prevCurr) > CURRSENSE_VAL_THRESH)
-        ? *prevCurr : *curr;
-
+    uint16_t newCurr = *curr;
+	if (abs(*curr - *prevCurr) > CURRSENSE_VAL_THRESH)
+    	*curr = *prevCurr;
     // Update old value for next iteration
-    *prevCurr = *curr;
+    *prevCurr = newCurr;
 }
 
 // #-------------------------# DIGITAL READ FUNCTIONS #--------------------------#
@@ -180,5 +190,33 @@ void assertMcuFlt()
 void resetMcuFlt()
 {
 	HAL_GPIO_WritePin(FLT_PINS_GROUP, MCU_FLT_PIN, LO);
+}
+
+void checkCANMessages()
+{
+	can_msg_t msg;
+	if(CAN_dequeue_msg(&msg)) {
+		uint16_t type = 0b0000011111110000 & msg.identifier;
+			//if(type == MID_FAULT_NR)
+				//assertFLT_NR();
+			//else if(type == MID_FAULT)
+				//assertFLT();
+	}
+}
+
+void sendHeartbeat()
+{
+	can_msg_t msg;
+	CAN_short_msg(&msg, create_ID(BID_IO, MID_HEARTBEAT), 0);
+	CAN_queue_transmit(&msg);
+}
+
+void mainLoop()
+{
+	// Read BSPD, FLT, and FLT_NR.
+	// Respond by asserting FLT or FLT_NR high accordingly.
+	// Read sensor values.
+	// Update internal and external faults. CAN
+	// Send out torque and brake values. CAN
 }
 

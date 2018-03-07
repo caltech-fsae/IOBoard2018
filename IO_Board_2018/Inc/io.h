@@ -6,6 +6,8 @@
  */
 
 #include "stm32f4xx_hal.h"
+#include "mycan.h"
+#include "identifiers.h"
 
 #ifndef IO_H_
 #define IO_H_
@@ -67,3 +69,7 @@ void clearFaultLEDs();
 void displayFaultLEDs(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2);
 void assertMcuFlt();
 void resetMcuFlt();
+
+void checkCANMessages();
+void sendHeartbeat();
+void mainLoop();
