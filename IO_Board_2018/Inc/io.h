@@ -12,28 +12,37 @@
 #ifndef IO_H_
 #define IO_H_
 
-#define SENSE_PINS_GROUP	GPIOA
-#define	APPS1_PIN			GPIO_PIN_1
-#define	APPS2_PIN			GPIO_PIN_2
-#define	BSE1_PIN			GPIO_PIN_3
-#define	BSE2_PIN			GPIO_PIN_4
-#define ISENSE_PIN			GPIO_PIN_5
+#define	PIN_APPS1			GPIO_PIN_1
+#define	PIN_APPS2			GPIO_PIN_2
+#define	PIN_BSE1			GPIO_PIN_3
+#define	PIN_BSE2			GPIO_PIN_4
+#define PIN_ISENSE			GPIO_PIN_5
+#define	PIN_BSPD_LED		GPIO_PIN_0
+#define	PIN_APPS_LED		GPIO_PIN_1
+#define	PIN_BSE_LED			GPIO_PIN_2
+#define	PIN_BPPC_LED		GPIO_PIN_3
+#define	PIN_FLT_R_LED		GPIO_PIN_4
+#define	PIN_FLT_NR_LED		GPIO_PIN_5
+#define	PIN_FLT_R			GPIO_PIN_5
+#define	PIN_FLT_NR			GPIO_PIN_6
+#define PIN_BSPD			GPIO_PIN_7
+#define PIN_MCU_FLT			GPIO_PIN_8
 
-#define FLT_PINS_GROUP		GPIOB
-#define	FLT_PIN				GPIO_PIN_5
-#define	FLT_NR_PIN			GPIO_PIN_6
-#define MCU_FLT_PIN			GPIO_PIN_8
-
-#define BSPD_PIN_GROUP		GPIOB
-#define BSPD_PIN			GPIO_PIN_7
-
-#define	LED_PINS_GROUP		GPIOE
-#define	BSPD_LED_PIN		GPIO_PIN_0
-#define	APPS_LED_PIN		GPIO_PIN_1
-#define	BSE_LED_PIN			GPIO_PIN_2
-#define	BPPC_LED_PIN		GPIO_PIN_3
-#define	FLT_LED_PIN			GPIO_PIN_4
-#define	FLTNR_LED_PIN		GPIO_PIN_5
+#define	GROUP_APPS1			GPIOA
+#define	GROUP_APPS2			GPIOA
+#define	GROUP_BSE1			GPIOA
+#define	GROUP_BSE2			GPIOA
+#define GROUP_ISENSE		GPIOA
+#define	GROUP_BSPD_LED		GPIOE
+#define	GROUP_APPS_LED		GPIOE
+#define	GROUP_BSE_LED		GPIOE
+#define	GROUP_BPPC_LED		GPIOE
+#define	GROUP_FLT_R_LED		GPIOE
+#define	GROUP_FLT_NR_LED	GPIOE
+#define	GROUP_FLT_R			GPIOB
+#define	GROUP_FLT_NR		GPIOB
+#define GROUP_BSPD			GPIOB
+#define GROUP_MCU_FLT		GPIOB
 
 #define HI                  GPIO_PIN_SET
 #define LO                  GPIO_PIN_RESET
@@ -48,28 +57,40 @@
 #define APPS_DIFF_THRESH        0.1			// As a fraction of 1
 #define BSE_DIFF_THRESH         0.1			// As a fraction of 1
 
+#define THROTTLE_THRESH			5			// Out of 4096
+#define BRAKE_THRESH			5			// Out of 4096
+
 #endif /* IO_H_ */
 
 /* Function Prototypes */
-void readApps(uint16_t* apps1, uint16_t* apps2, ADC_HandleTypeDef hadc3);
-void readBse(uint16_t* bse1, uint16_t* bse2, ADC_HandleTypeDef hadc1);
-void readCurr(uint16_t* currSensor, ADC_HandleTypeDef hadc2);
-void filterApps(uint16_t* prevApps, uint16_t* apps);
-void filterBse(uint16_t* prevBse, uint16_t* bse);
-void filterCurr(uint16_t* prevCurr, uint16_t* curr);
+void readApps(ADC_HandleTypeDef hadc3);
+void readBse(ADC_HandleTypeDef hadc1);
+void readCurr(ADC_HandleTypeDef hadc2);
+void filterApps();
+void filterBse();
+void filterCurr();
+void scaleThrottle();
+void scaleBrake();
+void scaleCurrent();
 
-int bspdStatus();
-int fltStatus();
-int fltNrStatus();
-int appsStatus(uint16_t* apps1, uint16_t* apps2);
-int bseStatus(uint16_t* bse1, uint16_t* bse2);
-int bppcStatus(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2);
+void updateLEDs();
+void clearFaults();
+void updateFaults();
+void assertFaults();
 
-void clearFaultLEDs();
-void displayFaultLEDs(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2);
-void assertMcuFlt();
-void resetMcuFlt();
+uint16_t getFltR();
+uint16_t getFltNR();
+uint16_t getIsThrottle();
+uint16_t getIsBrake();
+uint16_t getAppsMismatch();
+uint16_t getBseMismatch();
+uint16_t getPotato();
+uint16_t getBppcFault();
 
+void can_sendPedalStatus();
+void can_sendFaultStatus();
+
+void sendCANStatuses();
 void checkCANMessages();
 void sendHeartbeat();
-void mainLoop();
+void mainLoop(ADC_HandleTypeDef hadc1, ADC_HandleTypeDef hadc2, ADC_HandleTypeDef hadc3);

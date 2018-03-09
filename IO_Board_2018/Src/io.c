@@ -10,54 +10,90 @@
 #include "adc.h"
 
 // Global Variables
-/*struct faults_t {
-	uint16_t lv_battery_fault;	// set battery fault
-	uint16_t interlock_in_fault;
-	uint16_t flt_fault;
-	uint16_t flt_nr_fault;
-	uint16_t imd_fault;
-	uint16_t ams_fault;
-	uint16_t bspd_fault;
-} faults;*/
+struct Sensors {
+    // Raw values from ADCs
+    uint16_t apps1, apps2, bse1, bse2, currSensor;
+    uint16_t prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
+
+    // Filtered / scaled values
+    uint16_t throttle, brake, current;
+} sensors;
+
+struct Status {
+    uint16_t isThrottle;
+    uint16_t isBrake;
+
+    uint16_t flt_apps_mismatch;
+    uint16_t flt_bse_mismatch;
+
+    uint16_t internal_flt_r;
+    uint16_t internal_flt_nr;
+
+    uint16_t flt_bspd;        // Strictly a software indication of BSPD fault
+    uint16_t flt_bppc;
+} status;
+
+void mainLoop(ADC_HandleTypeDef hadc1, ADC_HandleTypeDef hadc2, ADC_HandleTypeDef hadc3){
+	clearFaults();
+
+	readApps(hadc3);
+	readBse(hadc1);
+	readCurr(hadc2);
+
+	filterApps();
+	filterBse();
+	filterCurr();
+
+	scaleThrottle();
+	scaleBrake();
+	scaleCurrent();
+
+	updateFaults();
+	updateLEDs();
+	assertFaults();
+
+	can_sendBrake();
+	can_sendThrottle();
+}
 
 // #--------------------------# READ ADC FUNCTIONS #---------------------------#
 
-void readApps(uint16_t* apps1, uint16_t* apps2, ADC_HandleTypeDef hadc3) {
+void readApps(ADC_HandleTypeDef hadc3) {
     HAL_ADC_Start(&hadc3);
 
     // Poll the entire ADC3 group for conversion
     if (HAL_ADC_PollForConversion(&hadc3, HAL_MAX_DELAY) == HAL_OK) {
         // Read APPS1
-        *apps1 = HAL_ADC_GetValue(&hadc3);
+        sensors.apps1 = HAL_ADC_GetValue(&hadc3);
         HAL_ADC_PollForConversion(&hadc3, HAL_MAX_DELAY);
         // Read APPS2
-        *apps2 = HAL_ADC_GetValue(&hadc3);
+        sensors.apps2 = HAL_ADC_GetValue(&hadc3);
     }
 
     HAL_ADC_Stop(&hadc3);
 }
 
 
-void readBse(uint16_t* bse1, uint16_t* bse2, ADC_HandleTypeDef hadc1) {
+void readBse(ADC_HandleTypeDef hadc1) {
     HAL_ADC_Start(&hadc1);
 
     // Poll the entire ADC1 group for conversion
     if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
         // Read BSE1
-        *bse1 = HAL_ADC_GetValue(&hadc1);
+        sensors.bse1 = HAL_ADC_GetValue(&hadc1);
         HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
         // Read BSE2
-        *bse2 = HAL_ADC_GetValue(&hadc1);
+        sensors.bse2 = HAL_ADC_GetValue(&hadc1);
     }
 
     HAL_ADC_Stop(&hadc1);
 }
 
 
-void readCurr(uint16_t* currSensor, ADC_HandleTypeDef hadc2) {
+void readCurr(ADC_HandleTypeDef hadc2) {
     HAL_ADC_Start(&hadc2);
     if (HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY) == HAL_OK)
-        *currSensor = HAL_ADC_GetValue(&hadc2);
+        sensors.currSensor = HAL_ADC_GetValue(&hadc2);
     HAL_ADC_Stop(&hadc2);
 }
 
@@ -65,158 +101,236 @@ void readCurr(uint16_t* currSensor, ADC_HandleTypeDef hadc2) {
 // #-------------------------# PROCESSING FUNCTIONS #--------------------------#
 
 
-// Filter a single APPS reading
-void filterApps(uint16_t* prevApps, uint16_t* apps) {
+// Filter both APPS readings
+void filterApps() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-	uint16_t newApps = *apps;
-	if (abs(*apps - *prevApps) > APPS_VAL_THRESH)
-		*apps = *prevApps;
+	uint16_t newApps1 = sensors.apps1;
+	if (abs(sensors.apps1 - sensors.prevApps1) > APPS_VAL_THRESH)
+		sensors.apps1 = sensors.prevApps1;
 	// Update old value for next iteration
-	*prevApps = newApps;
+	sensors.prevApps1 = newApps1;
+
+	uint16_t newApps2 = sensors.apps2;
+		if (abs(sensors.apps2 - sensors.prevApps2) > APPS_VAL_THRESH)
+			sensors.apps2 = sensors.prevApps2;
+		// Update old value for next iteration
+		sensors.prevApps2 = newApps2;
 }
 
 
 // Filter a single BSE reading
-void filterBse(uint16_t* prevBse, uint16_t* bse) {
+void filterBse() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-	uint16_t newBse = *bse;
-	if (abs(*bse - *prevBse) > BSE_VAL_THRESH)
-        *bse = prevBse;
+	uint16_t newBse1 = sensors.bse1;
+	if (abs(sensors.bse1 - sensors.prevBse1) > BSE_VAL_THRESH)
+        sensors.bse1 = sensors.prevBse1;
     // Update old value for next iteration
-    *prevBse = newBse;
+    sensors.prevBse1 = newBse1;
+
+    uint16_t newBse2 = sensors.bse2;
+	if (abs(sensors.bse2 - sensors.prevBse2) > BSE_VAL_THRESH)
+		sensors.bse2 = sensors.prevBse2;
+	// Update old value for next iteration
+	sensors.prevBse2 = newBse2;
 }
 
 
 // Filters the current sensor reading
-void filterCurr(uint16_t* prevCurr, uint16_t* curr) {
+void filterCurr() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-    uint16_t newCurr = *curr;
-	if (abs(*curr - *prevCurr) > CURRSENSE_VAL_THRESH)
-    	*curr = *prevCurr;
+    uint16_t newCurr = sensors.currSensor;
+	if (abs(sensors.currSensor - sensors.prevCurr) > CURRSENSE_VAL_THRESH)
+    	sensors.currSensor = sensors.prevCurr;
     // Update old value for next iteration
-    *prevCurr = newCurr;
+    sensors.prevCurr = newCurr;
 }
 
-// #-------------------------# DIGITAL READ FUNCTIONS #--------------------------#
-
-int bspdStatus() {
-    return (HAL_GPIO_ReadPin(LED_PINS_GROUP, BSPD_PIN) == LO);
+void scaleThrottle() {
+    sensors.throttle = (sensors.apps1 + sensors.apps2) / 2;
 }
 
-int fltStatus(){
-    return (HAL_GPIO_ReadPin(FLT_PINS_GROUP, FLT_PIN) == LO);
+void scaleBrake() {
+    sensors.brake = (sensors.bse1 + sensors.bse2) / 2;
 }
 
-int fltNrStatus(){
-    return (HAL_GPIO_ReadPin(FLT_PINS_GROUP, FLT_NR_PIN) == LO);
+void scaleCurrent() {
+    sensors.current = sensors.currSensor;
 }
 
-// APPS plausibility check fault - if difference exceeds 10% (
-// (currently, percent error computed either way)
-int appsStatus(uint16_t* apps1, uint16_t* apps2) {
-    return (( abs(*apps1 - *apps2) / *apps1) > APPS_DIFF_THRESH) ||
-           (( abs(*apps1 - *apps2) / *apps2) > APPS_DIFF_THRESH);
+
+void updateLEDs() {
+	HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, status.flt_bse_mismatch);
+	HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, status.flt_apps_mismatch);
+	HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, status.flt_bspd);
+	HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, status.flt_bppc);
+	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, status.internal_flt_r);
+	HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, status.internal_flt_nr);
 }
 
-// BSE plausibility check (not a fault in the rules, but same idea. Something
-// that core board should know)
-int bseStatus(uint16_t* bse1, uint16_t* bse2) {
-    return (( abs(*bse1 - *bse2) / *bse1) > BSE_DIFF_THRESH) ||
-           (( abs(*bse1 - *bse2) / *bse2) > BSE_DIFF_THRESH);
+
+void clearFaults() {
+    status.isThrottle = 0;
+    status.flt_apps_mismatch = 0;
+
+    status.isBrake = 0;
+    status.flt_bse_mismatch = 0;
+
+    status.flt_bspd = 0;
+    status.flt_bppc = 0;
+
+    status.internal_flt_r = 0;
+    status.internal_flt_nr = 0;
 }
 
-// BPPC fault - currently: if either accelerator sensor reads > 25% and either
-// brake sensor is "actuated"
-int bppcStatus(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2) {
-    return ( (*apps1 > BPPC_QTR_THROTTLE) || (*apps2 > BPPC_QTR_THROTTLE) ) &&
-           ( (*bse1 > BPPC_BRK_THRESH) || (*bse2 > BPPC_BRK_THRESH) );
+
+
+void updateFaults() {
+    status.isThrottle = getIsThrottle();
+    status.isBrake = getIsBrake();
+    status.flt_apps_mismatch = getAppsMismatch();
+    status.flt_bse_mismatch = getBseMismatch();
+    status.flt_bspd = getPotato();       // BSPD fault
+    status.flt_bppc = getBppcFault();
+
+    // Set main fault flags (ACTIVE HIGH !!!)
+    status.internal_flt_r  = status.flt_apps_mismatch ||
+                    status.flt_bse_mismatch || status.flt_bppc;
+    status.internal_flt_nr = status.flt_bspd;
 }
 
-void clearFaultLEDs()
-{
-	HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, LO);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, LO);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, LO);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, LO);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, LO);
-	HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, LO);
+
+
+void assertFaults() {
+    // Pull FLT_R line low if there is a flt_r
+    // (inversion provided by hardware)
+    HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT,
+            status.internal_flt_r);
 }
 
-void displayFaultLEDs(uint16_t* apps1, uint16_t* apps2, uint16_t* bse1, uint16_t* bse2)
-{
-	/* BSPD LED */
-	if (bspdStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, HI);
-	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BSPD_LED_PIN, LO);
-	/* APPS LED */
-	if (appsStatus(apps1, apps2))
-		HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, HI);
-	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, APPS_LED_PIN, LO);
-	/* BSE LED */
-	if (bseStatus(bse1, bse2))
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, HI);
-	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BSE_LED_PIN, LO);
-	/* BPPC LED */
-	if (bppcStatus(apps1, apps2, bse1, bse2))
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, HI);
-	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, BPPC_LED_PIN, LO);
-	/* FLT LED */
-	if (fltStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, HI);
-	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, FLT_LED_PIN, LO);
-	/* FLTNR LED */
-	if (fltNrStatus())
-		HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, HI);
-	else
-		HAL_GPIO_WritePin(LED_PINS_GROUP, FLTNR_LED_PIN, LO);
+
+
+// STRUCT NAMES:
+// `sensors` - all sensor readings and processed values
+// `status` - all status bits and faults
+uint16_t getFltR() {
+    return HAL_GPIO_ReadPin(GROUP_FLT_R, PIN_FLT_R);
 }
 
-void assertMcuFlt()
-{
-	HAL_GPIO_WritePin(FLT_PINS_GROUP, MCU_FLT_PIN, HI);
+uint16_t getFltNR() {
+    return HAL_GPIO_ReadPin(GROUP_FLT_NR, PIN_FLT_NR);
 }
 
-void resetMcuFlt()
-{
-	HAL_GPIO_WritePin(FLT_PINS_GROUP, MCU_FLT_PIN, LO);
+uint16_t getIsThrottle() {
+    return (sensors.throttle > THROTTLE_THRESH) ? 1 : 0;
 }
 
-void checkCANMessages()
-{
-	can_msg_t msg;
-	if(CAN_dequeue_msg(&msg)) {
-		uint16_t type = 0b0000011111110000 & msg.identifier;
-			//if(type == MID_FAULT_NR)
-				//assertFLT_NR();
-			//else if(type == MID_FAULT)
-				//assertFLT();
-	}
+uint16_t getIsBrake() {
+    return (sensors.brake > BRAKE_THRESH) ? 1 : 0;
 }
 
-void sendHeartbeat()
-{
-	can_msg_t msg;
-	CAN_short_msg(&msg, create_ID(BID_IO, MID_HEARTBEAT), 0);
+uint16_t getAppsMismatch() {
+    return (( abs(sensors.apps1 - sensors.apps2) / sensors.apps1)
+               > APPS_DIFF_THRESH) ||
+           (( abs(sensors.apps1 - sensors.apps2) / sensors.apps2)
+               > APPS_DIFF_THRESH);
+}
+
+uint16_t getBseMismatch() {
+    return (( abs(sensors.bse1 - sensors.bse2) / sensors.bse1)
+              > BSE_DIFF_THRESH) ||
+           (( abs(sensors.bse1 - sensors.bse2) / sensors.bse2)
+              > BSE_DIFF_THRESH);
+}
+
+uint16_t getPotato() {
+    return HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD) == LO;
+}
+
+uint16_t getBppcFault() {
+    return ( (sensors.apps1 > BPPC_QTR_THROTTLE) ||
+             (sensors.apps2 > BPPC_QTR_THROTTLE) ) &&
+           ( (sensors.bse1 > BPPC_BRK_THRESH) ||
+             (sensors.bse2 > BPPC_BRK_THRESH) );
+}
+
+
+// #-----------------------------# CAN FUNCTIONS #-----------------------------#
+
+
+
+// ##### MAIN LOOP FUNCTIONS #####
+
+void can_sendThrottle() {
+    can_msg_t msg;
+    CAN_short_msg(&msg, create_ID(BID_IO, MID_HEARTBEAT), sensors.throttle);
 	CAN_queue_transmit(&msg);
 }
 
-void mainLoop()
-{
-	// Read BSPD, FLT, and FLT_NR.
-	// Respond by asserting FLT or FLT_NR high accordingly.
-	// Read sensor values.
-	// Update internal and external faults. CAN
-	// Send out torque and brake values. CAN
+void can_sendBrake() {
+    can_msg_t msg;
+    CAN_short_msg(&msg, create_ID(BID_IO, MID_HEARTBEAT), sensors.brake);
+	CAN_queue_transmit(&msg);
 }
 
+
+
+// ##### 2nd SUBROUTINE FUNCTIONS #####
+
+// Accelerator and brake messages (2 separate) - in mainloop
+
+
+// Sends isThrottle, isBrake, and mismatch faults
+void can_sendPedalStatus() {
+
+    // MESSAGE BUS:
+    //      [1] - mismatch fault (active high)
+    //      [0] - pedal status (active high pressed)
+
+    // (*) Send throttle status and mismatch fault
+    uint16_t msg = ( (status.flt_apps_mismatch << 1)
+				   | (status.isThrottle) );
+    can_msg_t can_throttle_msg;
+	CAN_short_msg(&can_throttle_msg, create_ID(BID_IO, MID_THROTTLE), msg);
+	CAN_queue_transmit(&can_throttle_msg);
+
+    // (*) Send brake status and mismatch fault
+    msg          = ( (status.flt_bse_mismatch << 1)
+				   | (status.isBrake) );
+    can_msg_t can_brake_status_msg;
+	CAN_short_msg(&can_brake_status_msg, create_ID(BID_IO,
+            MID_BRAKE), msg);
+	CAN_queue_transmit(&can_brake_status_msg);
+}
+
+
+// Sends everything else
+void can_sendFaultStatus() {
+
+    // MESSAGE BUS:
+    //      [1] - BPPC fault (active high)
+    //      [0] - BSPD fault (active high)
+
+    uint16_t msg = ( (status.flt_bppc << 1)
+				   | (status.flt_bspd) );
+    can_msg_t can_faults_msg;
+    CAN_short_msg(&can_faults_msg, create_ID(BID_IO, MID_BPPC_BSPD),
+            msg);
+	CAN_queue_transmit(&can_faults_msg);
+}
+
+void sendCANStatuses(){
+	can_sendPedalStatus();
+	can_sendFaultStatus();
+}
+
+void sendHeartbeat() {
+    can_msg_t msg;
+	CAN_short_msg(&msg, create_ID(BID_IO, MID_HEARTBEAT), 0);
+	CAN_queue_transmit(&msg);
+}

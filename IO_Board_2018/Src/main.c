@@ -66,18 +66,7 @@ void SystemClock_Config(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-uint16_t channel3 = 0;
-uint16_t channel4 = 0;
-uint16_t apps1 = 0;
-uint16_t apps2 = 0;
-uint16_t bse1 = 0;
-uint16_t bse2 = 0;
-uint16_t curr = 0;
-uint16_t oldApps1 = 0;
-uint16_t oldApps2 = 0;
-uint16_t oldBse1 = 0;
-uint16_t oldBse2 = 0;
-uint16_t oldCurr = 0;
+
 /* USER CODE END 0 */
 
 /**
@@ -113,13 +102,11 @@ int main(void)
   MX_ADC2_Init();
   MX_ADC3_Init();
   /* USER CODE BEGIN 2 */
-  resetMcuFlt();
-  clearFaultLEDs();
 
   Schedule schedule;
   MakeSchedule(&schedule, 3);
   AddTask(&schedule, &mainLoop, 100);
-  AddTask(&schedule, &checkCANMessages, 1);
+  AddTask(&schedule, &sendCANStatuses, 150);
   AddTask(&schedule, &sendHeartbeat, 100);
   /* USER CODE END 2 */
 
@@ -127,28 +114,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  /* Old ADC code
-	  HAL_ADC_Start(&hadc1);
-	  if(HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK){
-		  channel3 = HAL_ADC_GetValue(&hadc1);
-		  HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-		  channel4 = HAL_ADC_GetValue(&hadc1);
-	  }
-	  HAL_ADC_Stop(&hadc1);
-	  */
-
-	  readApps(&apps1, &apps2, hadc3);
-	  readBse(&bse1, &bse2, hadc1);
-	  readCurr(&curr, hadc2);
-
-	  //filterApps(&oldApps1, &apps1);
-	  //filterApps(&oldApps2, &apps2);
-	  //filterBse(&oldBse1, &bse1);
-	  //filterBse(&oldBse2, &bse2);
-	  filterCurr(&oldCurr, &curr);
-	  displayFaultLEDs(&apps1, &apps2, &bse1, &bse2);
-
-	  HAL_Delay(100);
+	  RunSchedule(&schedule);
   }
   /* USER CODE END WHILE */
 
