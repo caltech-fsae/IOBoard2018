@@ -87,10 +87,11 @@ uint16_t getBseMismatch();
 uint16_t getPotato();
 uint16_t getBppcFault();
 
-void can_sendPedalStatus();
+void can_sendBrake();
+void can_sendThrottle();
 void can_sendFaultStatus();
 
 void sendCANStatuses();
 void checkCANMessages();
 void sendHeartbeat();
-void mainLoop(ADC_HandleTypeDef hadc1, ADC_HandleTypeDef hadc2, ADC_HandleTypeDef hadc3);
+void mainLoop();

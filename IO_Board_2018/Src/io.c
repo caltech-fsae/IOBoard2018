@@ -8,6 +8,11 @@
 
 #include "io.h"
 #include "adc.h"
+#include <stdlib.h>
+
+ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
+ADC_HandleTypeDef hadc3;
 
 // Global Variables
 struct Sensors {
@@ -33,7 +38,7 @@ struct Status {
     uint16_t flt_bppc;
 } status;
 
-void mainLoop(ADC_HandleTypeDef hadc1, ADC_HandleTypeDef hadc2, ADC_HandleTypeDef hadc3){
+void mainLoop(){
 	clearFaults();
 
 	readApps(hadc3);
@@ -268,13 +273,13 @@ uint16_t getBppcFault() {
 
 void can_sendThrottle() {
     can_msg_t msg;
-    CAN_short_msg(&msg, create_ID(BID_IO, MID_HEARTBEAT), sensors.throttle);
+    CAN_short_msg(&msg, create_ID(BID_IO, MID_THROTTLE), sensors.throttle);
 	CAN_queue_transmit(&msg);
 }
 
 void can_sendBrake() {
     can_msg_t msg;
-    CAN_short_msg(&msg, create_ID(BID_IO, MID_HEARTBEAT), sensors.brake);
+    CAN_short_msg(&msg, create_ID(BID_IO, MID_BRAKE), sensors.brake);
 	CAN_queue_transmit(&msg);
 }
 
