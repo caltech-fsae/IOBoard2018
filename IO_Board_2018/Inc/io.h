@@ -1,3 +1,6 @@
+#ifndef IO_H_
+#define IO_H_
+
 /*
  * io.h
  *
@@ -7,10 +10,9 @@
 
 #include "stm32f4xx_hal.h"
 #include "mycan.h"
+#include "adc.h"
+#include "can.h"
 #include "identifiers.h"
-
-#ifndef IO_H_
-#define IO_H_
 
 #define	PIN_APPS1			GPIO_PIN_1
 #define	PIN_APPS2			GPIO_PIN_2
@@ -60,8 +62,6 @@
 #define THROTTLE_THRESH			5			// Out of 4096
 #define BRAKE_THRESH			5			// Out of 4096
 
-#endif /* IO_H_ */
-
 /* Function Prototypes */
 void readApps(ADC_HandleTypeDef hadc3);
 void readBse(ADC_HandleTypeDef hadc1);
@@ -95,3 +95,5 @@ void sendCANStatuses();
 void checkCANMessages();
 void sendHeartbeat();
 void mainLoop();
+
+#endif /* IO_H_ */

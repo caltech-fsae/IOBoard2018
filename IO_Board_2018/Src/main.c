@@ -39,15 +39,16 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "adc.h"
+#include "can.h"
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
 #include "io.h"
 #include "scheduler.h"
 
-extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;
-extern ADC_HandleTypeDef hadc3;
+ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
+ADC_HandleTypeDef hadc3;
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -101,12 +102,13 @@ int main(void)
   MX_ADC1_Init();
   MX_ADC2_Init();
   MX_ADC3_Init();
+  MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
-
+  Init_MyCAN();
   Schedule schedule;
   MakeSchedule(&schedule, 3);
   AddTask(&schedule, &mainLoop, 100);
-  AddTask(&schedule, &sendCANStatuses, 150);
+  //AddTask(&schedule, &sendCANStatuses, 150);
   AddTask(&schedule, &sendHeartbeat, 100);
   /* USER CODE END 2 */
 

@@ -7,12 +7,11 @@
 
 
 #include "io.h"
-#include "adc.h"
 #include <stdlib.h>
 
-ADC_HandleTypeDef hadc1;
-ADC_HandleTypeDef hadc2;
-ADC_HandleTypeDef hadc3;
+extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;
+extern ADC_HandleTypeDef hadc3;
 
 // Global Variables
 struct Sensors {
@@ -63,43 +62,44 @@ void mainLoop(){
 
 // #--------------------------# READ ADC FUNCTIONS #---------------------------#
 
-void readApps(ADC_HandleTypeDef hadc3) {
-    HAL_ADC_Start(&hadc3);
+void readApps(ADC_HandleTypeDef hadc) {
+    HAL_ADC_Start(&hadc);
 
     // Poll the entire ADC3 group for conversion
-    if (HAL_ADC_PollForConversion(&hadc3, HAL_MAX_DELAY) == HAL_OK) {
+    if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
         // Read APPS1
-        sensors.apps1 = HAL_ADC_GetValue(&hadc3);
-        HAL_ADC_PollForConversion(&hadc3, HAL_MAX_DELAY);
+        sensors.apps1 = HAL_ADC_GetValue(&hadc);
+        HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
         // Read APPS2
-        sensors.apps2 = HAL_ADC_GetValue(&hadc3);
+        sensors.apps2 = HAL_ADC_GetValue(&hadc);
     }
 
-    HAL_ADC_Stop(&hadc3);
+    HAL_ADC_Stop(&hadc);
 }
 
 
-void readBse(ADC_HandleTypeDef hadc1) {
-    HAL_ADC_Start(&hadc1);
+void readBse(ADC_HandleTypeDef hadc) {
+    HAL_ADC_Start(&hadc);
 
     // Poll the entire ADC1 group for conversion
-    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+    if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
         // Read BSE1
-        sensors.bse1 = HAL_ADC_GetValue(&hadc1);
-        HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+        sensors.bse1 = HAL_ADC_GetValue(&hadc);
+        HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
         // Read BSE2
-        sensors.bse2 = HAL_ADC_GetValue(&hadc1);
+        sensors.bse2 = HAL_ADC_GetValue(&hadc);
     }
 
-    HAL_ADC_Stop(&hadc1);
+    HAL_ADC_Stop(&hadc);
 }
 
 
-void readCurr(ADC_HandleTypeDef hadc2) {
-    HAL_ADC_Start(&hadc2);
-    if (HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY) == HAL_OK)
-        sensors.currSensor = HAL_ADC_GetValue(&hadc2);
-    HAL_ADC_Stop(&hadc2);
+void readCurr(ADC_HandleTypeDef hadc) {
+    HAL_ADC_Start(&hadc);
+    if (HAL_ADC_PollForConversion(&hadc, 100000) == HAL_OK) {
+        sensors.currSensor = HAL_ADC_GetValue(&hadc);
+    }
+    HAL_ADC_Stop(&hadc);
 }
 
 
