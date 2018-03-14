@@ -63,34 +63,40 @@ void mainLoop(){
 // #--------------------------# READ ADC FUNCTIONS #---------------------------#
 
 void readApps(ADC_HandleTypeDef hadc) {
+	// Run first conversin on the APPS ADC group
     HAL_ADC_Start(&hadc);
-
-    // Poll the entire ADC3 group for conversion
     if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
         // Read APPS1
         sensors.apps1 = HAL_ADC_GetValue(&hadc);
-        HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-        // Read APPS2
+    }
+    HAL_ADC_Stop(&hadc);
+
+    // Run a second conversino on the same ADC (second channel)
+    HAL_ADC_Start(&hadc);
+    if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
+    	// Read APPS2
         sensors.apps2 = HAL_ADC_GetValue(&hadc);
     }
-
     HAL_ADC_Stop(&hadc);
 }
 
 
 void readBse(ADC_HandleTypeDef hadc) {
-    HAL_ADC_Start(&hadc);
+	// Run first conversion on the BSE ADC group
+	HAL_ADC_Start(&hadc);
+	if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
+		// Read BSE1
+		sensors.bse1 = HAL_ADC_GetValue(&hadc);
+	}
+	HAL_ADC_Stop(&hadc);
 
-    // Poll the entire ADC1 group for conversion
-    if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
-        // Read BSE1
-        sensors.bse1 = HAL_ADC_GetValue(&hadc);
-        HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-        // Read BSE2
-        sensors.bse2 = HAL_ADC_GetValue(&hadc);
-    }
-
-    HAL_ADC_Stop(&hadc);
+	// Run a second conversion on the same ADC (second channel)
+	HAL_ADC_Start(&hadc);
+	if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
+		// Read BSE2
+		sensors.bse2 = HAL_ADC_GetValue(&hadc);
+	}
+	HAL_ADC_Stop(&hadc);
 }
 
 
@@ -301,15 +307,14 @@ void can_sendPedalStatus() {
     uint16_t msg = ( (status.flt_apps_mismatch << 1)
 				   | (status.isThrottle) );
     can_msg_t can_throttle_msg;
-	CAN_short_msg(&can_throttle_msg, create_ID(BID_IO, MID_THROTTLE), msg);
+	CAN_short_msg(&can_throttle_msg, create_ID(BID_IO, MID_THROTTLE_STATUS), msg);
 	CAN_queue_transmit(&can_throttle_msg);
 
     // (*) Send brake status and mismatch fault
     msg          = ( (status.flt_bse_mismatch << 1)
 				   | (status.isBrake) );
     can_msg_t can_brake_status_msg;
-	CAN_short_msg(&can_brake_status_msg, create_ID(BID_IO,
-            MID_BRAKE), msg);
+	CAN_short_msg(&can_brake_status_msg, create_ID(BID_IO, MID_BRAKE_STATUS), msg);
 	CAN_queue_transmit(&can_brake_status_msg);
 }
 

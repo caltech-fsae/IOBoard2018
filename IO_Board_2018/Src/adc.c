@@ -62,7 +62,8 @@ void MX_ADC1_Init(void)
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = ENABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = ENABLE;
+  hadc1.Init.NbrOfDiscConversion = 1;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
@@ -141,7 +142,8 @@ void MX_ADC3_Init(void)
   hadc3.Init.Resolution = ADC_RESOLUTION_12B;
   hadc3.Init.ScanConvMode = ENABLE;
   hadc3.Init.ContinuousConvMode = DISABLE;
-  hadc3.Init.DiscontinuousConvMode = DISABLE;
+  hadc3.Init.DiscontinuousConvMode = ENABLE;
+  hadc3.Init.NbrOfDiscConversion = 1;
   hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc3.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;

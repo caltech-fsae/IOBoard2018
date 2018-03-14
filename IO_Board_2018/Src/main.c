@@ -108,8 +108,8 @@ int main(void)
   Schedule schedule;
   MakeSchedule(&schedule, 3);
   AddTask(&schedule, &mainLoop, 100);
-  //AddTask(&schedule, &sendCANStatuses, 150);
-  AddTask(&schedule, &sendHeartbeat, 100);
+  AddTask(&schedule, &sendCANStatuses, 103);
+  AddTask(&schedule, &sendHeartbeat, 200);
   /* USER CODE END 2 */
 
   /* Infinite loop */
