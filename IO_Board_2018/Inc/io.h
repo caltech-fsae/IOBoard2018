@@ -96,4 +96,6 @@ void checkCANMessages();
 void sendHeartbeat();
 void mainLoop();
 
+void init();
+
 #endif /* IO_H_ */
