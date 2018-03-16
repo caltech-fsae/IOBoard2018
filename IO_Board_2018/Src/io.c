@@ -332,7 +332,8 @@ void can_sendFaultStatus() {
 
 void sendCANStatuses(){
 	can_sendPedalStatus();
-	can_sendFaultStatus();
+	//TODO(@bgberr): uncomment
+	//can_sendFaultStatus();
 }
 
 void sendHeartbeat() {

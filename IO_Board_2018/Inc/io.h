@@ -53,14 +53,14 @@
 #define BSE_VAL_THRESH          1000
 #define CURRSENSE_VAL_THRESH    1000
 
-#define BPPC_QTR_THROTTLE       300         // 25% of pedal travel reading
-#define BPPC_BRK_THRESH         100         // Is braking
+#define BPPC_QTR_THROTTLE       1000         // 25% of pedal travel reading
+#define BPPC_BRK_THRESH         1000         // Is braking
 
-#define APPS_DIFF_THRESH        20			// As a fraction of 1
-#define BSE_DIFF_THRESH         20			// As a fraction of 1
+#define APPS_DIFF_THRESH        1000			// As a fraction of 1
+#define BSE_DIFF_THRESH         1000			// As a fraction of 1
 
-#define THROTTLE_THRESH			5			// Out of 4096
-#define BRAKE_THRESH			5			// Out of 4096
+#define THROTTLE_THRESH			1000			// Out of 4096
+#define BRAKE_THRESH			1000			// Out of 4096
 
 /* Function Prototypes */
 void readApps(ADC_HandleTypeDef hadc3);
