@@ -37,9 +37,11 @@ struct Status {
     uint16_t flt_bppc;
 } status;
 
-void mainLoop(){
+void init(){
 	clearFaults();
+}
 
+void mainLoop(){
 	readApps(hadc3);
 	readBse(hadc1);
 	readCurr(hadc2);
@@ -246,17 +248,11 @@ uint16_t getIsBrake() {
 }
 
 uint16_t getAppsMismatch() {
-    return (( abs(sensors.apps1 - sensors.apps2) / sensors.apps1)
-               > APPS_DIFF_THRESH) ||
-           (( abs(sensors.apps1 - sensors.apps2) / sensors.apps2)
-               > APPS_DIFF_THRESH);
+    return (abs(sensors.apps1 - sensors.apps2) > APPS_DIFF_THRESH);
 }
 
 uint16_t getBseMismatch() {
-    return (( abs(sensors.bse1 - sensors.bse2) / sensors.bse1)
-              > BSE_DIFF_THRESH) ||
-           (( abs(sensors.bse1 - sensors.bse2) / sensors.bse2)
-              > BSE_DIFF_THRESH);
+    return (abs(sensors.bse1 - sensors.bse2) > BSE_DIFF_THRESH);
 }
 
 uint16_t getPotato() {

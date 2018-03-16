@@ -105,6 +105,7 @@ int main(void)
   MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
   Init_MyCAN();
+  init();
   Schedule schedule;
   MakeSchedule(&schedule, 3);
   AddTask(&schedule, &mainLoop, 100);

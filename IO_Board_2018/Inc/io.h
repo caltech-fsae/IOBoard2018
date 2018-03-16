@@ -56,8 +56,8 @@
 #define BPPC_QTR_THROTTLE       300         // 25% of pedal travel reading
 #define BPPC_BRK_THRESH         100         // Is braking
 
-#define APPS_DIFF_THRESH        0.1			// As a fraction of 1
-#define BSE_DIFF_THRESH         0.1			// As a fraction of 1
+#define APPS_DIFF_THRESH        20			// As a fraction of 1
+#define BSE_DIFF_THRESH         20			// As a fraction of 1
 
 #define THROTTLE_THRESH			5			// Out of 4096
 #define BRAKE_THRESH			5			// Out of 4096
