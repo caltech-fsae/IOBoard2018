@@ -8,6 +8,7 @@
 
 #include "io.h"
 #include <stdlib.h>
+#include <string>
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
@@ -18,6 +19,9 @@ struct Sensors {
     // Raw values from ADCs
     uint16_t apps1, apps2, bse1, bse2, currSensor;
     uint16_t prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
+    float avg_apps1, avg_apps2, avg_bse1, avg_bse2, avg_curr;
+    int ind_apps1, ind_apps2, ind_bse1, ind_bse2, ind_curr;
+    uint16_t data_apps1[APPS_AVG_SAMPLE_SIZE], data_apps2[APPS_AVG_SAMPLE_SIZE], data_bse1[BSE_AVG_SAMPLE_SIZE], data_bse2[BSE_AVG_SAMPLE_SIZE], data_curr[CURR_AVG_SAMPLE_SIZE];
 
     // Filtered / scaled values
     uint16_t throttle, brake, current;
@@ -38,13 +42,18 @@ struct Status {
 } status;
 
 void init(){
-	clearFaults();
+  init_sensors();
+  clearFaults();
 }
 
 void mainLoop(){
 	readApps(hadc3);
 	readBse(hadc1);
 	readCurr(hadc2);
+
+  gen_avg_bse();
+  gen_avg_apps();
+  gen_avg_curr();
 
 	filterApps();
 	filterBse();
@@ -113,23 +122,59 @@ void readCurr(ADC_HandleTypeDef hadc) {
 
 // #-------------------------# PROCESSING FUNCTIONS #--------------------------#
 
+//Modify running average, for filtering purposes
+void gen_avg_apps() {
+  sensors.avg_apps1 += (float) sensors.apps1 / (float) APPS_AVG_SAMPLE_SIZE;
+  sensors.avg_apps1 -= (float) sensors.data_apps1[sensors.ind_apps1] / (float) APPS_AVG_SAMPLE_SIZE;
+  sensors.data_apps1[sensors.ind_apps1] = sensors.apps1;
+  sensors.ind_apps1 -= 1;
+  sensors.ind_apps1 %= APPS_AVG_SAMPLE_SIZE;
+
+  sensors.avg_apps2 += (float) sensors.apps2 / (float) APPS_AVG_SAMPLE_SIZE;
+  sensors.avg_apps2 -= (float) sensors.data_apps2[sensors.ind_apps2] / (float) APPS_AVG_SAMPLE_SIZE;
+  sensors.data_apps2[sensors.ind_apps2] = sensors.apps2;
+  sensors.ind_apps2 -= 1;
+  sensors.ind_apps2 %= APPS_AVG_SAMPLE_SIZE;
+}
+
+void gen_avg_bse() {
+  sensors.avg_bse1 += (float) sensors.bse1 / (float) BSE_AVG_SAMPLE_SIZE;
+  sensors.avg_bse1 -= (float) sensors.data_bse1[sensors.ind_bse1] / (float) BSE_AVG_SAMPLE_SIZE
+  sensors.data_bse1[sensors.ind_bse1] = sensors.bse1;
+  sensors.ind_bse1 -= 1;
+  sensors.ind_bse1 %= BSE_AVG_SAMPLE_SIZE;
+
+  sensors.avg_bse2 += (float) sensors.bse2 / (float) BSE_AVG_SAMPLE_SIZE;
+  sensors.avg_bse2 -= (float) sensors.data_bse2[sensors.ind_bse2] / (float) BSE_AVG_SAMPLE_SIZE
+  sensors.data_bse2[sensors.ind_bse2] = sensors.bse2;
+  sensors.ind_bse2 -= 1;
+  sensors.ind_bse2 %= BSE_AVG_SAMPLE_SIZE;
+}
+
+void gen_avg_curr() {
+  sensors.avg_curr += (float) sensors.curr / (float) CURR_AVG_SAMPLE_SIZE;
+  sensors.avg_curr -= (float) sensors.data_curr[sensors.ind_curr] / (float) CURR_AVG_SAMPLE_SIZE;
+  sensors.data_curr[sensors.ind_curr] = sensors.curr;
+  sensors.ind_curr -= 1;
+  sensors.ind_curr %= CURR_AVG_SAMPLE_SIZE;
+}
 
 // Filter both APPS readings
 void filterApps() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-	uint16_t newApps1 = sensors.apps1;
-	if (abs(sensors.apps1 - sensors.prevApps1) > APPS_VAL_THRESH)
-		sensors.apps1 = sensors.prevApps1;
-	// Update old value for next iteration
-	sensors.prevApps1 = newApps1;
+    if (abs(sensors.avg_apps1 - sensors.apps1) > APPS_VAL_THRESH) {
+        sensors.apps1 = sensors.prevApps1;
+      } else {
+        sensors.prevApps1 = sensors.apps1;
+      }
 
-	uint16_t newApps2 = sensors.apps2;
-		if (abs(sensors.apps2 - sensors.prevApps2) > APPS_VAL_THRESH)
-			sensors.apps2 = sensors.prevApps2;
-		// Update old value for next iteration
-		sensors.prevApps2 = newApps2;
+      if (abs(sensors.avg_apps2 - sensors.apps2) > APPS_VAL_THRESH) {
+        sensors.apps2 = sensors.prevApps2;
+      } else {
+        sensors.prevApps2 = sensors.apps2;
+      }
 }
 
 
@@ -138,17 +183,17 @@ void filterBse() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-	uint16_t newBse1 = sensors.bse1;
-	if (abs(sensors.bse1 - sensors.prevBse1) > BSE_VAL_THRESH)
+    if (abs(sensors.avg_bse1 - sensors.bse1) > BSE_VAL_THRESH) {
         sensors.bse1 = sensors.prevBse1;
-    // Update old value for next iteration
-    sensors.prevBse1 = newBse1;
+      } else {
+        sensors.prevBse1 = sensors.bse1;
+      }
 
-    uint16_t newBse2 = sensors.bse2;
-	if (abs(sensors.bse2 - sensors.prevBse2) > BSE_VAL_THRESH)
-		sensors.bse2 = sensors.prevBse2;
-	// Update old value for next iteration
-	sensors.prevBse2 = newBse2;
+      if (abs(sensors.avg_bse2 - sensors.bse2) > BSE_VAL_THRESH) {
+        sensors.bse2 = sensors.prevBse2;
+      } else {
+        sensors.prevBse2 = sensors.prevBse2;
+      }
 }
 
 
@@ -157,11 +202,11 @@ void filterCurr() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-    uint16_t newCurr = sensors.currSensor;
-	if (abs(sensors.currSensor - sensors.prevCurr) > CURRSENSE_VAL_THRESH)
-    	sensors.currSensor = sensors.prevCurr;
-    // Update old value for next iteration
-    sensors.prevCurr = newCurr;
+    if (abs(sensors.avg_curr - sensors.curr) > BSE_CURR_THRESH) {
+      sensors.curr = sensors.prevCurr;
+    } else {
+      sensors.prevCurr = sensors.curr;
+    }
 }
 
 void scaleThrottle() {
@@ -199,6 +244,13 @@ void clearFaults() {
 
     status.internal_flt_r = 0;
     status.internal_flt_nr = 0;
+}
+
+void init_sensors() {
+  sensors.ind_apps1 = sensors.ind_apps2 = sensors.ind_bse1 = sensors.ind_bse2 = sensors.ind_curr = 0;
+  sensors.avg_bse1 = sensors.avg_bse2 = sensors.avg_apps1 = sensors.avg_apps2 = sensors.avg_curr = 0.0;
+  sensors.prevCurr = sensors.prevBse1 = sensors.prevBse2 = sensors.prevApps1 = sensors.prevApps2 = 0;
+
 }
 
 

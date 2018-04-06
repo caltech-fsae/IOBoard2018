@@ -62,6 +62,10 @@
 #define THROTTLE_THRESH			1000			// Out of 4096
 #define BRAKE_THRESH			1000			// Out of 4096
 
+#define APPS_AVG_SAMPLE_SIZE 100 // Sample sizes for running averages
+#define BSE_AVG_SAMPLE_SIZE 100
+#define CURR_AVG_SAMPLE_SIZE 100
+
 /* Function Prototypes */
 void readApps(ADC_HandleTypeDef hadc3);
 void readBse(ADC_HandleTypeDef hadc1);
