@@ -312,6 +312,13 @@ uint16_t getPotato() {
 }
 
 uint16_t getBppcFault() {
+    if (status.flt_bppc) {
+      if (sensors.apps1 < BPPC_STOP_THRESH && sensors.apps2 < BPPC_STOP_THRESH) {
+        return 0;
+      } else {
+        return 1;
+      }
+    }
     return ( (sensors.apps1 > BPPC_QTR_THROTTLE) ||
              (sensors.apps2 > BPPC_QTR_THROTTLE) ) &&
            ( (sensors.bse1 > BPPC_BRK_THRESH) ||
@@ -385,7 +392,7 @@ void can_sendFaultStatus() {
 void sendCANStatuses(){
 	can_sendPedalStatus();
 	//TODO(@bgberr): uncomment
-	//can_sendFaultStatus();
+	// can_sendFaultStatus();
 }
 
 void sendHeartbeat() {
