@@ -8,7 +8,6 @@
 
 #include "io.h"
 #include <stdlib.h>
-#include <string>
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
@@ -17,11 +16,13 @@ extern ADC_HandleTypeDef hadc3;
 // Global Variables
 struct Sensors {
     // Raw values from ADCs
-    uint16_t apps1, apps2, bse1, bse2, currSensor;
+    uint16_t apps1, apps2, bse1, bse2, currSense;
     uint16_t prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
     float avg_apps1, avg_apps2, avg_bse1, avg_bse2, avg_curr;
     int ind_apps1, ind_apps2, ind_bse1, ind_bse2, ind_curr;
-    uint16_t data_apps1[APPS_AVG_SAMPLE_SIZE], data_apps2[APPS_AVG_SAMPLE_SIZE], data_bse1[BSE_AVG_SAMPLE_SIZE], data_bse2[BSE_AVG_SAMPLE_SIZE], data_curr[CURR_AVG_SAMPLE_SIZE];
+    uint16_t data_apps1[APPS_AVG_SAMPLE_SIZE], data_apps2[APPS_AVG_SAMPLE_SIZE],
+		data_bse1[BSE_AVG_SAMPLE_SIZE], data_bse2[BSE_AVG_SAMPLE_SIZE],
+		data_curr[CURR_AVG_SAMPLE_SIZE];
 
     // Filtered / scaled values
     uint16_t throttle, brake, current;
@@ -51,9 +52,9 @@ void mainLoop(){
 	readBse(hadc1);
 	readCurr(hadc2);
 
-  gen_avg_bse();
-  gen_avg_apps();
-  gen_avg_curr();
+	gen_avg_bse();
+	gen_avg_apps();
+	gen_avg_curr();
 
 	filterApps();
 	filterBse();
@@ -114,7 +115,7 @@ void readBse(ADC_HandleTypeDef hadc) {
 void readCurr(ADC_HandleTypeDef hadc) {
     HAL_ADC_Start(&hadc);
     if (HAL_ADC_PollForConversion(&hadc, 100000) == HAL_OK) {
-        sensors.currSensor = HAL_ADC_GetValue(&hadc);
+        sensors.currSense = HAL_ADC_GetValue(&hadc);
     }
     HAL_ADC_Stop(&hadc);
 }
@@ -139,22 +140,22 @@ void gen_avg_apps() {
 
 void gen_avg_bse() {
   sensors.avg_bse1 += (float) sensors.bse1 / (float) BSE_AVG_SAMPLE_SIZE;
-  sensors.avg_bse1 -= (float) sensors.data_bse1[sensors.ind_bse1] / (float) BSE_AVG_SAMPLE_SIZE
+  sensors.avg_bse1 -= (float) sensors.data_bse1[sensors.ind_bse1] / (float) BSE_AVG_SAMPLE_SIZE;
   sensors.data_bse1[sensors.ind_bse1] = sensors.bse1;
   sensors.ind_bse1 -= 1;
   sensors.ind_bse1 %= BSE_AVG_SAMPLE_SIZE;
 
   sensors.avg_bse2 += (float) sensors.bse2 / (float) BSE_AVG_SAMPLE_SIZE;
-  sensors.avg_bse2 -= (float) sensors.data_bse2[sensors.ind_bse2] / (float) BSE_AVG_SAMPLE_SIZE
+  sensors.avg_bse2 -= (float) sensors.data_bse2[sensors.ind_bse2] / (float) BSE_AVG_SAMPLE_SIZE;
   sensors.data_bse2[sensors.ind_bse2] = sensors.bse2;
   sensors.ind_bse2 -= 1;
   sensors.ind_bse2 %= BSE_AVG_SAMPLE_SIZE;
 }
 
 void gen_avg_curr() {
-  sensors.avg_curr += (float) sensors.curr / (float) CURR_AVG_SAMPLE_SIZE;
+  sensors.avg_curr += (float) sensors.currSense / (float) CURR_AVG_SAMPLE_SIZE;
   sensors.avg_curr -= (float) sensors.data_curr[sensors.ind_curr] / (float) CURR_AVG_SAMPLE_SIZE;
-  sensors.data_curr[sensors.ind_curr] = sensors.curr;
+  sensors.data_curr[sensors.ind_curr] = sensors.currSense;
   sensors.ind_curr -= 1;
   sensors.ind_curr %= CURR_AVG_SAMPLE_SIZE;
 }
@@ -177,7 +178,6 @@ void filterApps() {
       }
 }
 
-
 // Filter a single BSE reading
 void filterBse() {
     // Compute new value - if there is a huge difference, then assert the
@@ -196,16 +196,18 @@ void filterBse() {
       }
 }
 
-
+/**
+ * DEPRECATED
+ */
 // Filters the current sensor reading
 void filterCurr() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-    if (abs(sensors.avg_curr - sensors.curr) > BSE_CURR_THRESH) {
-      sensors.curr = sensors.prevCurr;
+    if (abs(sensors.avg_curr - sensors.currSense) > CURRSENSE_VAL_THRESH) {
+      sensors.currSense = sensors.prevCurr;
     } else {
-      sensors.prevCurr = sensors.curr;
+      sensors.prevCurr = sensors.currSense;
     }
 }
 
@@ -218,7 +220,7 @@ void scaleBrake() {
 }
 
 void scaleCurrent() {
-    sensors.current = sensors.currSensor;
+    sensors.current = sensors.currSense;
 }
 
 
@@ -250,7 +252,6 @@ void init_sensors() {
   sensors.ind_apps1 = sensors.ind_apps2 = sensors.ind_bse1 = sensors.ind_bse2 = sensors.ind_curr = 0;
   sensors.avg_bse1 = sensors.avg_bse2 = sensors.avg_apps1 = sensors.avg_apps2 = sensors.avg_curr = 0.0;
   sensors.prevCurr = sensors.prevBse1 = sensors.prevBse2 = sensors.prevApps1 = sensors.prevApps2 = 0;
-
 }
 
 

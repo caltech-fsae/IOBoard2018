@@ -49,34 +49,42 @@
 #define HI                  GPIO_PIN_SET
 #define LO                  GPIO_PIN_RESET
 
-#define APPS_VAL_THRESH         1000
-#define BSE_VAL_THRESH          1000
-#define CURRSENSE_VAL_THRESH    1000
+#define APPS_VAL_THRESH         	1000
+#define BSE_VAL_THRESH          	1000
+#define CURRSENSE_VAL_THRESH    	1000
 
-#define BPPC_QTR_THROTTLE       1000         // 25% of pedal travel reading
-#define BPPC_BRK_THRESH         1000         // Is braking
-#define BPPC_STOP_THRESH        200           //5% of APPS travel reading
+#define BPPC_QTR_THROTTLE       	1000         // 25% of pedal travel reading
+#define BPPC_BRK_THRESH         	1000         // Is braking
+#define BPPC_STOP_THRESH        	200           //5% of APPS travel reading
 
-#define APPS_DIFF_THRESH        1000			// As a fraction of 1
-#define BSE_DIFF_THRESH         1000			// As a fraction of 1
+#define APPS_DIFF_THRESH        	1000			// As a fraction of 1
+#define BSE_DIFF_THRESH         	1000			// As a fraction of 1
 
 #define THROTTLE_THRESH			1000			// Out of 4096
-#define BRAKE_THRESH			1000			// Out of 4096
+#define BRAKE_THRESH				1000			// Out of 4096
 
-#define APPS_AVG_SAMPLE_SIZE 100 // Sample sizes for running averages
-#define BSE_AVG_SAMPLE_SIZE 100
-#define CURR_AVG_SAMPLE_SIZE 100
+#define APPS_AVG_SAMPLE_SIZE 	100 // Sample sizes for running averages
+#define BSE_AVG_SAMPLE_SIZE 		100
+#define CURR_AVG_SAMPLE_SIZE 	100
 
 /* Function Prototypes */
 void readApps(ADC_HandleTypeDef hadc3);
 void readBse(ADC_HandleTypeDef hadc1);
 void readCurr(ADC_HandleTypeDef hadc2);
+
+void gen_avg_bse();
+void gen_avg_apps();
+void gen_avg_curr();
+
 void filterApps();
 void filterBse();
 void filterCurr();
+
 void scaleThrottle();
 void scaleBrake();
 void scaleCurrent();
+
+void init_sensors();
 
 void updateLEDs();
 void clearFaults();
