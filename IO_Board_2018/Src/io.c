@@ -56,13 +56,13 @@ void mainLoop(){
 	gen_avg_apps();
 	gen_avg_curr();
 
+  scaleThrottle();
+	scaleBrake();
+	scaleCurrent();
+
 	filterApps();
 	filterBse();
 	filterCurr();
-
-	scaleThrottle();
-	scaleBrake();
-	scaleCurrent();
 
 	updateFaults();
 	updateLEDs();
@@ -128,13 +128,13 @@ void gen_avg_apps() {
   sensors.avg_apps1 += (float) sensors.apps1 / (float) APPS_AVG_SAMPLE_SIZE;
   sensors.avg_apps1 -= (float) sensors.data_apps1[sensors.ind_apps1] / (float) APPS_AVG_SAMPLE_SIZE;
   sensors.data_apps1[sensors.ind_apps1] = sensors.apps1;
-  sensors.ind_apps1 -= 1;
+  sensors.ind_apps1 += 1;
   sensors.ind_apps1 %= APPS_AVG_SAMPLE_SIZE;
 
   sensors.avg_apps2 += (float) sensors.apps2 / (float) APPS_AVG_SAMPLE_SIZE;
   sensors.avg_apps2 -= (float) sensors.data_apps2[sensors.ind_apps2] / (float) APPS_AVG_SAMPLE_SIZE;
   sensors.data_apps2[sensors.ind_apps2] = sensors.apps2;
-  sensors.ind_apps2 -= 1;
+  sensors.ind_apps2 += 1;
   sensors.ind_apps2 %= APPS_AVG_SAMPLE_SIZE;
 }
 
@@ -142,13 +142,13 @@ void gen_avg_bse() {
   sensors.avg_bse1 += (float) sensors.bse1 / (float) BSE_AVG_SAMPLE_SIZE;
   sensors.avg_bse1 -= (float) sensors.data_bse1[sensors.ind_bse1] / (float) BSE_AVG_SAMPLE_SIZE;
   sensors.data_bse1[sensors.ind_bse1] = sensors.bse1;
-  sensors.ind_bse1 -= 1;
+  sensors.ind_bse1 += 1;
   sensors.ind_bse1 %= BSE_AVG_SAMPLE_SIZE;
 
   sensors.avg_bse2 += (float) sensors.bse2 / (float) BSE_AVG_SAMPLE_SIZE;
   sensors.avg_bse2 -= (float) sensors.data_bse2[sensors.ind_bse2] / (float) BSE_AVG_SAMPLE_SIZE;
   sensors.data_bse2[sensors.ind_bse2] = sensors.bse2;
-  sensors.ind_bse2 -= 1;
+  sensors.ind_bse2 += 1;
   sensors.ind_bse2 %= BSE_AVG_SAMPLE_SIZE;
 }
 
@@ -156,7 +156,7 @@ void gen_avg_curr() {
   sensors.avg_curr += (float) sensors.currSense / (float) CURR_AVG_SAMPLE_SIZE;
   sensors.avg_curr -= (float) sensors.data_curr[sensors.ind_curr] / (float) CURR_AVG_SAMPLE_SIZE;
   sensors.data_curr[sensors.ind_curr] = sensors.currSense;
-  sensors.ind_curr -= 1;
+  sensors.ind_curr += 1;
   sensors.ind_curr %= CURR_AVG_SAMPLE_SIZE;
 }
 
@@ -393,7 +393,7 @@ void can_sendFaultStatus() {
 void sendCANStatuses(){
 	can_sendPedalStatus();
 	//TODO(@bgberr): uncomment
-	// can_sendFaultStatus();
+	can_sendFaultStatus();
 }
 
 void sendHeartbeat() {
