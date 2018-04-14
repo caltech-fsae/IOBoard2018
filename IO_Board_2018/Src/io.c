@@ -212,10 +212,13 @@ void filterCurr() {
 }
 
 void scaleThrottle() {
+    sensors.apps2 -= APPS_OFFSET;
     sensors.throttle = (sensors.apps1 + sensors.apps2) / 2;
+
 }
 
 void scaleBrake() {
+    sensors.bse2 -= BSE_OFFSET;
     sensors.brake = (sensors.bse1 + sensors.bse2) / 2;
 }
 

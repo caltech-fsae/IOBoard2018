@@ -60,6 +60,9 @@
 #define APPS_DIFF_THRESH        	1000			// As a fraction of 1
 #define BSE_DIFF_THRESH         	1000			// As a fraction of 1
 
+#define APPS_OFFSET               1000
+#define BSE_OFFSET                1000
+
 #define THROTTLE_THRESH			1000			// Out of 4096
 #define BRAKE_THRESH				1000			// Out of 4096
 
