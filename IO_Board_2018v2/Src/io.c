@@ -17,6 +17,7 @@ extern ADC_HandleTypeDef hadc3;
 struct Sensors {
     // Raw values from ADCs
     uint16_t apps1, apps2, bse1, bse2, currSense;
+    uint16_t apps_scale, brake_scale;
     uint16_t prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
     float avg_apps1, avg_apps2, avg_bse1, avg_bse2, avg_curr;
     int ind_apps1, ind_apps2, ind_bse1, ind_bse2, ind_curr;
@@ -211,6 +212,10 @@ void filterCurr() {
     }
 }
 
+void scaleValue(bool isThrottle, uint16_t val) {
+
+}
+
 void scaleThrottle() {
     sensors.apps2 -= APPS_OFFSET;
     sensors.throttle = (sensors.apps1 + sensors.apps2) / 2;
@@ -255,6 +260,8 @@ void init_sensors() {
   sensors.ind_apps1 = sensors.ind_apps2 = sensors.ind_bse1 = sensors.ind_bse2 = sensors.ind_curr = 0;
   sensors.avg_bse1 = sensors.avg_bse2 = sensors.avg_apps1 = sensors.avg_apps2 = sensors.avg_curr = 0.0;
   sensors.prevCurr = sensors.prevBse1 = sensors.prevBse2 = sensors.prevApps1 = sensors.prevApps2 = 0;
+  sensors.apps_scale = 4096 / (APPS_MAX - APPS_MIN);
+  sensors.brake_scale = 4096 / (BRAKE_MAX - BRAKE_MIN);
 }
 
 
@@ -316,7 +323,7 @@ uint16_t getPotato() {
 
 uint16_t getBppcFault() {
     if (status.flt_bppc) {
-      if (sensors.throttle < BPPC_STOP_THRESH && sensors.throttle < BPPC_STOP_THRESH + 1000) {
+      if (sensors.throttle < BPPC_STOP_THRESH) {
         return 0;
       } else {
         return 1;
