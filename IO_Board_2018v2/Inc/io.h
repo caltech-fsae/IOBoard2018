@@ -52,6 +52,10 @@
 #define APPS_VAL_THRESH         	1000
 #define BSE_VAL_THRESH          	1000
 #define CURRSENSE_VAL_THRESH    	1000
+#define APPS_MIN                  1000
+#define APPS_MAX                  1000
+#define BRAKE_MIN                 1000
+#define BRAKE_MAX                 1000
 
 #define BPPC_QTR_THROTTLE       	1000         // 25% of pedal travel reading
 #define BPPC_BRK_THRESH         	1000         // Is braking

@@ -316,7 +316,7 @@ uint16_t getPotato() {
 
 uint16_t getBppcFault() {
     if (status.flt_bppc) {
-      if (sensors.apps1 < BPPC_STOP_THRESH && sensors.apps2 < BPPC_STOP_THRESH + 1000) {
+      if (sensors.throttle < BPPC_STOP_THRESH && sensors.throttle < BPPC_STOP_THRESH + 1000) {
         return 0;
       } else {
         return 1;
