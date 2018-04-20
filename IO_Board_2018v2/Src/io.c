@@ -17,6 +17,7 @@ extern ADC_HandleTypeDef hadc3;
 struct Sensors {
     // Raw values from ADCs
     uint16_t apps1, apps2, bse1, bse2, currSense;
+    uint16_t scaled_apps1, scaled_apps2, scaled_bse1, scaled_bse2;
     uint16_t apps_scale, brake_scale;
     uint16_t prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
     float avg_apps1, avg_apps2, avg_bse1, avg_bse2, avg_curr;
@@ -213,13 +214,19 @@ void filterCurr() {
 }
 
 void scaleValue(bool isThrottle, uint16_t val) {
-
+    if (isThrottle) {
+      return (val - APPS_MIN) * sensors.apps_scale;
+    }
+    else {
+      return (val - BRAKE_MIN) * sensors.brake_scale;
+    }
 }
 
 void scaleThrottle() {
     sensors.apps2 -= APPS_OFFSET;
-    sensors.throttle = (sensors.apps1 + sensors.apps2) / 2;
-
+    sensors.scaled_apps1 = scaleValue(sensors.apps1);
+    sensors.scaled_apps2 = scaleValue(sensors.apps2);
+    sensors.throttle = (sensors.scaled_apps1 + sensors.scaled_apps2) / 2;
 }
 
 void scaleBrake() {
