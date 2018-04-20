@@ -178,6 +178,7 @@ void filterApps() {
       } else {
         sensors.prevApps2 = sensors.scaled_apps2;
       }
+      sensors.throttle = (sensors.scaled_apps1 + scaled_apps2) / 2;
 }
 
 // Filter a single BSE reading
@@ -194,8 +195,10 @@ void filterBse() {
       if (abs(sensors.avg_bse2 - sensors.scaled_bse2) > BSE_VAL_THRESH) {
         sensors.scaled_bse2 = sensors.prevBse2;
       } else {
-        sensors.prevBse2 = sensors.prevBse2;
+        sensors.prevBse2 = sensors.scaled_bse2;
       }
+      sensors.brake = (sensors.bse1 + sensors.bse2) / 2;
+
 }
 
 /**
