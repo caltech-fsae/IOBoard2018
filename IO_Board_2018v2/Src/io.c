@@ -178,7 +178,7 @@ void filterApps() {
       } else {
         sensors.prevApps2 = sensors.scaled_apps2;
       }
-      sensors.throttle = (sensors.scaled_apps1 + scaled_apps2) / 2;
+      sensors.throttle = (sensors.scaled_apps1 + sensors.scaled_apps2) / 2;
 }
 
 // Filter a single BSE reading
@@ -197,7 +197,7 @@ void filterBse() {
       } else {
         sensors.prevBse2 = sensors.scaled_bse2;
       }
-      sensors.brake = (sensors.bse1 + sensors.bse2) / 2;
+      sensors.brake = (sensors.scaled_bse1 + sensors.scaled_bse2) / 2;
 
 }
 
@@ -216,25 +216,35 @@ void filterCurr() {
     }
 }
 
+uint16_t scaleApps(uint16_t val) {
+	return (val - APPS_MIN) * sensors.apps_scale;
+}
+
+uint16_t scaleBse(uint16_t val) {
+	return (val - BSE_MIN) * sensors.brake_scale;
+}
+
+/*
 void scaleValue(bool isThrottle, uint16_t val) {
     if (isThrottle) {
       return (val - APPS_MIN) * sensors.apps_scale;
     }
     else {
-      return (val - BRAKE_MIN) * sensors.brake_scale;
+      return (val - BSE_MIN) * sensors.brake_scale;
     }
 }
+*/
 
 void scaleThrottle() {
     sensors.apps2 -= APPS_OFFSET;
-    sensors.scaled_apps1 = scaleValue(sensors.apps1);
-    sensors.scaled_apps2 = scaleValue(sensors.apps2);
-    sensors.throttle = (sensors.scaled_apps1 + sensors.scaled_apps2) / 2;
+    sensors.scaled_apps1 = scaleApps(sensors.apps1);
+    sensors.scaled_apps2 = scaleApps(sensors.apps2);
 }
 
 void scaleBrake() {
     sensors.bse2 -= BSE_OFFSET;
-    sensors.brake = (sensors.bse1 + sensors.bse2) / 2;
+    sensors.scaled_bse1 = scaleBse(sensors.bse1);
+    sensors.scaled_bse2 = scaleBse(sensors.bse2);
 }
 
 void scaleCurrent() {
@@ -271,7 +281,7 @@ void init_sensors() {
   sensors.avg_bse1 = sensors.avg_bse2 = sensors.avg_apps1 = sensors.avg_apps2 = sensors.avg_curr = 0.0;
   sensors.prevCurr = sensors.prevBse1 = sensors.prevBse2 = sensors.prevApps1 = sensors.prevApps2 = 0;
   sensors.apps_scale = 4096 / (APPS_MAX - APPS_MIN);
-  sensors.brake_scale = 4096 / (BRAKE_MAX - BRAKE_MIN);
+  sensors.brake_scale = 4096 / (BSE_MAX - BSE_MIN);
 }
 
 
