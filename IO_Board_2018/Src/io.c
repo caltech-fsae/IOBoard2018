@@ -17,9 +17,8 @@ extern ADC_HandleTypeDef hadc3;
 struct Sensors {
     // Raw values from ADCs
     uint16_t apps1, apps2, bse1, bse2, currSense;
-    uint16_t scaled_apps1, scaled_apps2, scaled_bse1, scaled_bse2;
-    uint16_t apps_scale, brake_scale;
     uint16_t prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
+    uint16_t scaledapps1, scaledapps2, scaledbse1,
     float avg_apps1, avg_apps2, avg_bse1, avg_bse2, avg_curr;
     int ind_apps1, ind_apps2, ind_bse1, ind_bse2, ind_curr;
     uint16_t data_apps1[APPS_AVG_SAMPLE_SIZE], data_apps2[APPS_AVG_SAMPLE_SIZE],
@@ -167,16 +166,16 @@ void filterApps() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-    if (abs(sensors.avg_apps1 - sensors.scaled_apps1) > APPS_VAL_THRESH) {
+    if (abs(sensors.avg_apps1 - sensors.apps1) > APPS_VAL_THRESH) {
         sensors.apps1 = sensors.prevApps1;
       } else {
         sensors.prevApps1 = sensors.apps1;
       }
 
-      if (abs(sensors.avg_apps2 - sensors.scaled_apps2) > APPS_VAL_THRESH) {
-        sensors.scaled_apps2 = sensors.prevApps2;
+      if (abs(sensors.avg_apps2 - sensors.apps2) > APPS_VAL_THRESH) {
+        sensors.apps2 = sensors.prevApps2;
       } else {
-        sensors.prevApps2 = sensors.scaled_apps2;
+        sensors.prevApps2 = sensors.apps2;
       }
 }
 
@@ -185,14 +184,14 @@ void filterBse() {
     // Compute new value - if there is a huge difference, then assert the
     // previous value but store it so that it can be compared with the
     // reading from the next iteration. Else, the new value goes through.
-    if (abs(sensors.avg_bse1 - sensors.scaled_bse1) > BSE_VAL_THRESH) {
-        sensors.scaled_bse1 = sensors.prevBse1;
+    if (abs(sensors.avg_bse1 - sensors.bse1) > BSE_VAL_THRESH) {
+        sensors.bse1 = sensors.prevBse1;
       } else {
-        sensors.prevBse1 = sensors.scaled_bse1;
+        sensors.prevBse1 = sensors.bse1;
       }
 
-      if (abs(sensors.avg_bse2 - sensors.scaled_bse2) > BSE_VAL_THRESH) {
-        sensors.scaled_bse2 = sensors.prevBse2;
+      if (abs(sensors.avg_bse2 - sensors.bse2) > BSE_VAL_THRESH) {
+        sensors.bse2 = sensors.prevBse2;
       } else {
         sensors.prevBse2 = sensors.prevBse2;
       }
@@ -213,20 +212,11 @@ void filterCurr() {
     }
 }
 
-void scaleValue(bool isThrottle, uint16_t val) {
-    if (isThrottle) {
-      return (val - APPS_MIN) * sensors.apps_scale;
-    }
-    else {
-      return (val - BRAKE_MIN) * sensors.brake_scale;
-    }
-}
-
 void scaleThrottle() {
+
     sensors.apps2 -= APPS_OFFSET;
-    sensors.scaled_apps1 = scaleValue(sensors.apps1);
-    sensors.scaled_apps2 = scaleValue(sensors.apps2);
-    sensors.throttle = (sensors.scaled_apps1 + sensors.scaled_apps2) / 2;
+    sensors.throttle = (sensors.apps1 + sensors.apps2) / 2;
+
 }
 
 void scaleBrake() {
@@ -267,8 +257,6 @@ void init_sensors() {
   sensors.ind_apps1 = sensors.ind_apps2 = sensors.ind_bse1 = sensors.ind_bse2 = sensors.ind_curr = 0;
   sensors.avg_bse1 = sensors.avg_bse2 = sensors.avg_apps1 = sensors.avg_apps2 = sensors.avg_curr = 0.0;
   sensors.prevCurr = sensors.prevBse1 = sensors.prevBse2 = sensors.prevApps1 = sensors.prevApps2 = 0;
-  sensors.apps_scale = 4096 / (APPS_MAX - APPS_MIN);
-  sensors.brake_scale = 4096 / (BRAKE_MAX - BRAKE_MIN);
 }
 
 
@@ -292,7 +280,8 @@ void updateFaults() {
 void assertFaults() {
     // Pull FLT_R line low if there is a flt_r
     // (inversion provided by hardware)
-    //HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT, status.internal_flt_r);
+    HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT,
+            status.internal_flt_r);
 }
 
 
@@ -330,16 +319,16 @@ uint16_t getPotato() {
 
 uint16_t getBppcFault() {
     if (status.flt_bppc) {
-      if (sensors.throttle < BPPC_STOP_THRESH) {
+      if (sensors.apps1 < BPPC_STOP_THRESH && sensors.apps2 < BPPC_STOP_THRESH) {
         return 0;
       } else {
         return 1;
       }
     }
     return ( (sensors.apps1 > BPPC_QTR_THROTTLE) ||
-             (sensors.apps2 > BPPC_QTR_THROTTLE + 1000) ) &&
+             (sensors.apps2 > BPPC_QTR_THROTTLE) ) &&
            ( (sensors.bse1 > BPPC_BRK_THRESH) ||
-             (sensors.bse2 > BPPC_BRK_THRESH + 1000) );
+             (sensors.bse2 > BPPC_BRK_THRESH) );
 }
 
 
