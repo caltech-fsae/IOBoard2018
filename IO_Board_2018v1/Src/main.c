@@ -40,6 +40,7 @@
 #include "stm32f4xx_hal.h"
 #include "adc.h"
 #include "can.h"
+#include "dma.h"
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
@@ -67,7 +68,7 @@ void SystemClock_Config(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-
+uint16_t adcValues[5];
 /* USER CODE END 0 */
 
 /**
@@ -99,11 +100,12 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_ADC1_Init();
-  MX_ADC2_Init();
-  MX_ADC3_Init();
   MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adcValues, 5);
+
   Init_MyCAN();
   init();
   Schedule schedule;
@@ -112,8 +114,20 @@ int main(void)
   AddTask(&schedule, &sendCANStatuses, 758);
   AddTask(&schedule, &sendHeartbeat, 1000);
 
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, LO);
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, LO);
+  HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
+  HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
+  HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
+  HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, LO);
+  HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
+  HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);
+
+  HAL_Delay(1000);
+
+  while(HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD) == LO){}
+
+  ////TODO(@aditelik): do something less jank
+  //HAL_Delay(2000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -121,6 +135,20 @@ int main(void)
   while (1)
   {
 	  RunSchedule(&schedule);
+	  /*HAL_Delay(500);
+	  HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
+	  HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
+	  HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
+	  HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, LO);
+	  HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
+	  HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);
+	  HAL_Delay(500);
+	  HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, HI);
+	  HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, HI);
+	  HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, HI);
+	  HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, HI);
+	  HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, HI);
+	  HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, HI);*/
   }
   /* USER CODE END WHILE */
 

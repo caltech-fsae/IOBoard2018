@@ -13,6 +13,8 @@ extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern ADC_HandleTypeDef hadc3;
 
+extern uint16_t adcValues[5];
+
 // Global Variables
 struct Sensors {
     // Raw values from ADCs
@@ -48,21 +50,23 @@ void init(){
 }
 
 void mainLoop(){
+	clearFaults();
+
 	readApps(hadc3);
 	readBse(hadc1);
 	readCurr(hadc2);
 
-	gen_avg_bse();
-	gen_avg_apps();
-	gen_avg_curr();
+	//gen_avg_bse();
+	//gen_avg_apps();
+	//gen_avg_curr();
 
-  scaleThrottle();
+	scaleThrottle();
 	scaleBrake();
 	scaleCurrent();
 
-	filterApps();
-	filterBse();
-	filterCurr();
+	//filterApps();
+	//filterBse();
+	//filterCurr();
 
 	updateFaults();
 	updateLEDs();
@@ -75,7 +79,7 @@ void mainLoop(){
 // #--------------------------# READ ADC FUNCTIONS #---------------------------#
 
 void readApps(ADC_HandleTypeDef hadc) {
-	// Run first conversin on the APPS ADC group
+	/*// Run first conversin on the APPS ADC group
     HAL_ADC_Start(&hadc);
     if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
         // Read APPS1
@@ -89,12 +93,15 @@ void readApps(ADC_HandleTypeDef hadc) {
     	// Read APPS2
         sensors.apps2 = HAL_ADC_GetValue(&hadc);
     }
-    HAL_ADC_Stop(&hadc);
+    HAL_ADC_Stop(&hadc);*/
+
+	sensors.apps1 = adcValues[0];
+	sensors.apps2 = adcValues[1];
 }
 
 
 void readBse(ADC_HandleTypeDef hadc) {
-	// Run first conversion on the BSE ADC group
+	/*// Run first conversion on the BSE ADC group
 	HAL_ADC_Start(&hadc);
 	if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
 		// Read BSE1
@@ -108,16 +115,19 @@ void readBse(ADC_HandleTypeDef hadc) {
 		// Read BSE2
 		sensors.bse2 = HAL_ADC_GetValue(&hadc);
 	}
-	HAL_ADC_Stop(&hadc);
+	HAL_ADC_Stop(&hadc);*/
+	sensors.bse1 = adcValues[2];
+	sensors.bse2 = adcValues[3];
 }
 
 
 void readCurr(ADC_HandleTypeDef hadc) {
-    HAL_ADC_Start(&hadc);
+    /*HAL_ADC_Start(&hadc);
     if (HAL_ADC_PollForConversion(&hadc, 100000) == HAL_OK) {
         sensors.currSense = HAL_ADC_GetValue(&hadc);
     }
-    HAL_ADC_Stop(&hadc);
+    HAL_ADC_Stop(&hadc);*/
+	sensors.currSense = adcValues[4];
 }
 
 
@@ -212,13 +222,13 @@ void filterCurr() {
 }
 
 void scaleThrottle() {
-    sensors.apps2 -= APPS_OFFSET;
+    //sensors.apps2 -= APPS_OFFSET;
     sensors.throttle = (sensors.apps1 + sensors.apps2) / 2;
 
 }
 
 void scaleBrake() {
-    sensors.bse2 -= BSE_OFFSET;
+    //sensors.bse2 -= BSE_OFFSET;
     sensors.brake = (sensors.bse1 + sensors.bse2) / 2;
 }
 
@@ -234,6 +244,12 @@ void updateLEDs() {
 	HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, status.flt_bppc);
 	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, status.internal_flt_r);
 	HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, status.internal_flt_nr);
+	/*HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
+	HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
+	HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
+	HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, LO);
+	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
+	HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);*/
 }
 
 
@@ -262,8 +278,8 @@ void init_sensors() {
 void updateFaults() {
     status.isThrottle = getIsThrottle();
     status.isBrake = getIsBrake();
-    status.flt_apps_mismatch = getAppsMismatch();
-    status.flt_bse_mismatch = getBseMismatch();
+    status.flt_apps_mismatch = 0; //getAppsMismatch();
+    status.flt_bse_mismatch = 0; //getBseMismatch();
     status.flt_bspd = getPotato();       // BSPD fault
     status.flt_bppc = getBppcFault();
 
@@ -279,6 +295,7 @@ void assertFaults() {
     // Pull FLT_R line low if there is a flt_r
     // (inversion provided by hardware)
     //HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT, status.internal_flt_r);
+    //HAL_GPIO_WritePin(GROUP_MCU_FLT_NR, PIN_MCU_FLT_NR, status.internal_flt_nr);
 }
 
 
@@ -316,16 +333,13 @@ uint16_t getPotato() {
 
 uint16_t getBppcFault() {
     if (status.flt_bppc) {
-      if (sensors.apps1 < BPPC_STOP_THRESH && sensors.apps2 < BPPC_STOP_THRESH + 1000) {
+      if (sensors.apps1 < BPPC_STOP_THRESH) {
         return 0;
       } else {
         return 1;
       }
     }
-    return ( (sensors.apps1 > BPPC_QTR_THROTTLE) ||
-             (sensors.apps2 > BPPC_QTR_THROTTLE + 1000) ) &&
-           ( (sensors.bse1 > BPPC_BRK_THRESH) ||
-             (sensors.bse2 > BPPC_BRK_THRESH + 1000) );
+    return (sensors.apps1 > BPPC_QTR_THROTTLE && sensors.bse1 > BPPC_BRK_THRESH);
 }
 
 
