@@ -65,8 +65,8 @@
 #define APPS_OFFSET               1000
 #define BSE_OFFSET                1000
 
-#define THROTTLE_THRESH			1000			// Out of 4096
-#define BRAKE_THRESH				1000			// Out of 4096
+#define THROTTLE_THRESH			1500			// Out of 4096
+#define BRAKE_THRESH				1500			// Out of 4096
 
 #define APPS_AVG_SAMPLE_SIZE 	100 // Sample sizes for running averages
 #define BSE_AVG_SAMPLE_SIZE 		100

@@ -238,8 +238,12 @@ void scaleCurrent() {
 
 
 void updateLEDs() {
-	HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, status.flt_bse_mismatch);
-	HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, status.flt_apps_mismatch);
+	// TODO(@ElectronicToast): RESTORE MISMATCH INDICATORS
+	//HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, status.flt_bse_mismatch);
+	HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, status.isBrake);
+	//HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, status.flt_apps_mismatch);
+	HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, status.isThrottle);
+
 	HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, status.flt_bspd);
 	HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, status.flt_bppc);
 	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, status.internal_flt_r);
