@@ -376,22 +376,19 @@ void can_sendBrake() {
 void can_sendPedalStatus() {
 
     // MESSAGE BUS:
-    //      [1] - mismatch fault (active high)
-    //      [0] - pedal status (active high pressed)
+    //		[3] - apps mismatch fault (active high)
+	//		[2] - bse mismatch fault (active high)
+	//      [1] - throttle pedal status (active high pressed)
+    //      [0] - brake pedal status (active high pressed)
 
     // (*) Send throttle status and mismatch fault
-    uint16_t msg = ( (status.flt_apps_mismatch << 1)
-				   | (status.isThrottle) );
+    uint16_t msg = ( (status.flt_apps_mismatch << 3)
+				   | (status.flt_bse_mismatch << 2)
+				   | (status.isThrottle << 1)
+				   | (status.isBrake));
     can_msg_t can_throttle_msg;
-	CAN_short_msg(&can_throttle_msg, create_ID(BID_IO, MID_THROTTLE_STATUS), msg);
+	CAN_short_msg(&can_throttle_msg, create_ID(BID_IO, MID_PEDAL_STATUS), msg);
 	CAN_queue_transmit(&can_throttle_msg);
-
-    // (*) Send brake status and mismatch fault
-    msg          = ( (status.flt_bse_mismatch << 1)
-				   | (status.isBrake) );
-    can_msg_t can_brake_status_msg;
-	CAN_short_msg(&can_brake_status_msg, create_ID(BID_IO, MID_BRAKE_STATUS), msg);
-	CAN_queue_transmit(&can_brake_status_msg);
 }
 
 
