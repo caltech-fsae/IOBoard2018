@@ -16,6 +16,8 @@ extern ADC_HandleTypeDef hadc3;
 extern uint16_t adcValues[5];
 
 // Global Variables
+uint16_t done_init = 0;
+
 struct Sensors {
     // Raw values from ADCs
     uint16_t apps1, apps2, bse1, bse2, currSense;
@@ -50,7 +52,11 @@ void init(){
 }
 
 void mainLoop(){
-	clearFaults();
+	if (done_init == 0)
+	{
+		clearFaults();
+		done_init = 1;
+	}
 
 	readApps(hadc3);
 	readBse(hadc1);
@@ -298,8 +304,8 @@ void updateFaults() {
 void assertFaults() {
     // Pull FLT_R line low if there is a flt_r
     // (inversion provided by hardware)
-    //HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT, status.internal_flt_r);
-    //HAL_GPIO_WritePin(GROUP_MCU_FLT_NR, PIN_MCU_FLT_NR, status.internal_flt_nr);
+    HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT, status.internal_flt_r);
+    HAL_GPIO_WritePin(GROUP_MCU_FLT_NR, PIN_MCU_FLT_NR, status.internal_flt_nr);
 }
 
 

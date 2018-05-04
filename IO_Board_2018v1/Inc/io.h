@@ -28,7 +28,7 @@
 #define	PIN_FLT_R			GPIO_PIN_5
 #define	PIN_FLT_NR			GPIO_PIN_6
 #define PIN_BSPD			GPIO_PIN_6
-#define PIN_MCU_FLT			GPIO_PIN_8
+#define PIN_MCU_FLT			GPIO_PIN_7
 #define PIN_MCU_FLT_NR		GPIO_PIN_8
 
 #define	GROUP_APPS1			GPIOA
@@ -45,7 +45,7 @@
 #define	GROUP_FLT_R			GPIOB
 #define	GROUP_FLT_NR		GPIOB
 #define GROUP_BSPD			GPIOA
-#define GROUP_MCU_FLT		GPIOB
+#define GROUP_MCU_FLT		GPIOA
 #define GROUP_MCU_FLT_NR	GPIOA
 
 #define HI                  GPIO_PIN_SET
