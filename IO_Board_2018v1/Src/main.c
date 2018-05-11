@@ -121,12 +121,10 @@ int main(void)
   HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
   HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);
 
-  HAL_Delay(1000);
-
   while(HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD) == LO){}
 
   ////TODO(@aditelik): do something less jank
-  //HAL_Delay(2000);
+  HAL_Delay(1000);
 
   /* USER CODE END 2 */
 
