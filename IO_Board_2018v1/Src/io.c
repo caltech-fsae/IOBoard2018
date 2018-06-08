@@ -50,7 +50,7 @@ struct Status {
 void init(){
   HAL_Delay(100);
   init_sensors();
-  clearFaults();
+  clearInternalFaults();
   rst_all_flts_flag = 0;
   HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
   HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
@@ -261,7 +261,7 @@ void updateLEDs() {
 }
 
 
-void clearFaults() {
+void clearInternalFaults() {
     status.isThrottle = 0;
     status.flt_apps_mismatch = 0;
 
@@ -367,8 +367,7 @@ void readCANMessages() {
 	can_msg_t msg;
 	while(CAN_dequeue_msg(&msg)) {
 		uint16_t type = 0b0000011111110000 & msg.identifier;
-		uint16_t board = 0b00001111 & msg.identifier;
-		if(type == MID_RST_ALL_FLTS) {
+		if(type == MID_ATTEMPT_RESET) {
 			rst_all_flts_flag = 1;
 		   	ignore_nr_start_time = HAL_GetTick();
 		}

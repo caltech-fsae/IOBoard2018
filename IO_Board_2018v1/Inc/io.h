@@ -48,8 +48,6 @@
 #define GROUP_MCU_FLT		GPIOA
 #define GROUP_MCU_FLT_NR	GPIOA
 
-#define MID_RST_ALL_FLTS	69
-
 #define HI                  GPIO_PIN_SET
 #define LO                  GPIO_PIN_RESET
 
@@ -94,8 +92,8 @@ void scaleCurrent();
 void init_sensors();
 
 void updateLEDs();
-void clearFaults();
-void updateFaults();
+void clearInternalFaults();
+void updateInternalFaults();
 void assertFaults();
 
 uint16_t getFltR();
