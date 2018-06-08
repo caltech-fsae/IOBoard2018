@@ -107,24 +107,15 @@ int main(void)
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adcValues, 5);
 
   Init_MyCAN();
-  init();
+
   Schedule schedule;
-  MakeSchedule(&schedule, 3);
+  MakeSchedule(&schedule, 4);
   AddTask(&schedule, &mainLoop, 437);
+  AddTask(&schedule, &readCANMessages, 500);
   AddTask(&schedule, &sendCANStatuses, 758);
   AddTask(&schedule, &sendHeartbeat, 1000);
 
-  HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
-  HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
-  HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
-  HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, LO);
-  HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
-  HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);
-
-  ////TODO(@aditelik): do something less jank
-  HAL_Delay(1000);
-
-  while(HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD) == LO){}
+  init();
 
   /* USER CODE END 2 */
 

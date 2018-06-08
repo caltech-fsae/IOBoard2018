@@ -16,7 +16,8 @@ extern ADC_HandleTypeDef hadc3;
 extern uint16_t adcValues[5];
 
 // Global Variables
-uint16_t done_init = 0;
+uint16_t rst_all_flts_flag = 0;
+int ignore_nr_start_time;
 
 struct Sensors {
     // Raw values from ADCs
@@ -47,17 +48,19 @@ struct Status {
 } status;
 
 void init(){
+  HAL_Delay(100);
   init_sensors();
   clearFaults();
+  HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
+  HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
+  HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
+  HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, LO);
+  HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
+  HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);
+  while(HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD) == LO){}
 }
 
 void mainLoop(){
-	if (done_init == 0)
-	{
-		clearFaults();
-		done_init = 1;
-	}
-
 	readApps(hadc3);
 	readBse(hadc1);
 	readCurr(hadc2);
@@ -74,7 +77,7 @@ void mainLoop(){
 	//filterBse();
 	//filterCurr();
 
-	updateFaults();
+	updateInternalFaults();
 	updateLEDs();
 	assertFaults();
 
@@ -254,12 +257,6 @@ void updateLEDs() {
 	HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, status.flt_bppc);
 	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, status.internal_flt_r);
 	HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, status.internal_flt_nr);
-	/*HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
-	HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
-	HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
-	HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, LO);
-	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
-	HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);*/
 }
 
 
@@ -285,18 +282,28 @@ void init_sensors() {
 
 
 
-void updateFaults() {
+void updateInternalFaults() {
     status.isThrottle = getIsThrottle();
     status.isBrake = getIsBrake();
-    status.flt_apps_mismatch = 0; //getAppsMismatch();
-    status.flt_bse_mismatch = 0; //getBseMismatch();
-    status.flt_bspd = getPotato();       // BSPD fault
+    status.flt_apps_mismatch = getAppsMismatch();
+    status.flt_bse_mismatch = getBseMismatch();
+    status.flt_bspd = getPotato();
     status.flt_bppc = getBppcFault();
 
     // Set main fault flags (ACTIVE HIGH !!!)
-    status.internal_flt_r  = status.flt_apps_mismatch ||
-                    status.flt_bse_mismatch || status.flt_bppc;
-    status.internal_flt_nr = status.flt_bspd;
+    status.internal_flt_r  = status.flt_apps_mismatch || status.flt_bse_mismatch || status.flt_bppc;
+    if(rst_all_flts_flag == 0)
+    {
+    	status.internal_flt_nr = status.flt_bspd || getFltNR();
+    }
+    else
+    {
+    	status.internal_flt_nr = 0;
+    	if(HAL_GetTick() - ignore_nr_start_time > 3000)
+    	{
+    		rst_all_flts_flag = 0;
+    	}
+    }
 }
 
 
@@ -314,11 +321,11 @@ void assertFaults() {
 // `sensors` - all sensor readings and processed values
 // `status` - all status bits and faults
 uint16_t getFltR() {
-    return HAL_GPIO_ReadPin(GROUP_FLT_R, PIN_FLT_R);
+    return HAL_GPIO_ReadPin(GROUP_FLT_R, PIN_FLT_R) == LO;
 }
 
 uint16_t getFltNR() {
-    return HAL_GPIO_ReadPin(GROUP_FLT_NR, PIN_FLT_NR);
+    return HAL_GPIO_ReadPin(GROUP_FLT_NR, PIN_FLT_NR) == LO;
 }
 
 uint16_t getIsThrottle() {
@@ -338,24 +345,34 @@ uint16_t getBseMismatch() {
 }
 
 uint16_t getPotato() {
-    return HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD) == LO;
+    return !(HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD));
 }
 
 uint16_t getBppcFault() {
     if (status.flt_bppc) {
-      if (sensors.apps1 < BPPC_STOP_THRESH) {
+      if (status.isThrottle == 0) {
         return 0;
       } else {
         return 1;
       }
     }
-    return (sensors.apps1 > BPPC_QTR_THROTTLE && sensors.bse1 > BPPC_BRK_THRESH);
+    return (status.isThrottle && status.isBrake);
 }
 
 
 // #-----------------------------# CAN FUNCTIONS #-----------------------------#
 
-
+void readCANMessages() {
+	can_msg_t msg;
+	while(CAN_dequeue_msg(&msg)) {
+		uint16_t type = 0b0000011111110000 & msg.identifier;
+		uint16_t board = 0b00001111 & msg.identifier;
+		if(type == MID_RST_ALL_FLTS) {
+			rst_all_flts_flag = 1;
+		   	ignore_nr_start_time = HAL_GetTick();
+		}
+	}
+}
 
 // ##### MAIN LOOP FUNCTIONS #####
 
@@ -415,7 +432,6 @@ void can_sendFaultStatus() {
 
 void sendCANStatuses(){
 	can_sendPedalStatus();
-	//TODO(@bgberr): uncomment
 	can_sendFaultStatus();
 }
 

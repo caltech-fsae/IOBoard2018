@@ -48,6 +48,8 @@
 #define GROUP_MCU_FLT		GPIOA
 #define GROUP_MCU_FLT_NR	GPIOA
 
+#define MID_RST_ALL_FLTS	69
+
 #define HI                  GPIO_PIN_SET
 #define LO                  GPIO_PIN_RESET
 
@@ -59,14 +61,14 @@
 #define BPPC_BRK_THRESH         	1000         // Is braking
 #define BPPC_STOP_THRESH        	1000           //5% of APPS travel reading
 
-#define APPS_DIFF_THRESH        	3000			// As a fraction of 1
-#define BSE_DIFF_THRESH         	3000			// As a fraction of 1
+#define APPS_DIFF_THRESH        	1500
+#define BSE_DIFF_THRESH         	1500
 
 #define APPS_OFFSET               1000
 #define BSE_OFFSET                1000
 
-#define THROTTLE_THRESH			1500			// Out of 4096
-#define BRAKE_THRESH				1500			// Out of 4096
+#define THROTTLE_THRESH			2000			// Out of 4096
+#define BRAKE_THRESH				2000			// Out of 4096
 
 #define APPS_AVG_SAMPLE_SIZE 	100 // Sample sizes for running averages
 #define BSE_AVG_SAMPLE_SIZE 		100
@@ -109,6 +111,7 @@ void can_sendBrake();
 void can_sendThrottle();
 void can_sendFaultStatus();
 
+void readCANMessages();
 void sendCANStatuses();
 void checkCANMessages();
 void sendHeartbeat();
