@@ -51,6 +51,7 @@ void init(){
   HAL_Delay(100);
   init_sensors();
   clearFaults();
+  rst_all_flts_flag = 0;
   HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
   HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
   HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
