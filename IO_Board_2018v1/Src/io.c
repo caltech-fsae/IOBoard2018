@@ -18,6 +18,7 @@ extern uint16_t adcValues[5];
 // Global Variables
 uint16_t rst_all_flts_flag = 0;
 int ignore_nr_start_time;
+int flt_hit = 0;
 
 struct Sensors {
     // Raw values from ADCs
@@ -48,7 +49,7 @@ struct Status {
 } status;
 
 void init(){
-  HAL_Delay(100);
+  HAL_Delay(1000);
   init_sensors();
   clearInternalFaults();
   rst_all_flts_flag = 0;
@@ -295,11 +296,13 @@ void updateInternalFaults() {
     status.internal_flt_r  = status.flt_apps_mismatch || status.flt_bse_mismatch || status.flt_bppc;
     if(rst_all_flts_flag == 0)
     {
+    //	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, getFltNR());
     	status.internal_flt_nr = status.flt_bspd || getFltNR();
     }
     else
     {
     	status.internal_flt_nr = 0;
+    	flt_hit = 0;
     	if(HAL_GetTick() - ignore_nr_start_time > 3000)
     	{
     		rst_all_flts_flag = 0;
@@ -326,7 +329,24 @@ uint16_t getFltR() {
 }
 
 uint16_t getFltNR() {
-    return HAL_GPIO_ReadPin(GROUP_FLT_NR, PIN_FLT_NR) == LO;
+	if(flt_hit) {
+		return 1;
+	}
+    static uint16_t deb_ctr = 0;
+    uint16_t flt_nr = HAL_GPIO_ReadPin(GROUP_FLT_NR, PIN_FLT_NR);
+	if((flt_nr == LO) && (deb_ctr < 100)) {
+		deb_ctr++;
+		return 0;
+	}
+    else
+    {
+    		deb_ctr = 0;
+    		if(HAL_GPIO_ReadPin(GROUP_FLT_NR, PIN_FLT_NR) == LO) {
+    			flt_hit = 1;
+    			return 1;
+    		}
+    		return 0;
+    }
 }
 
 uint16_t getIsThrottle() {
@@ -367,9 +387,9 @@ void readCANMessages() {
 	can_msg_t msg;
 	while(CAN_dequeue_msg(&msg)) {
 		uint16_t type = 0b0000011111110000 & msg.identifier;
-		if(type == MID_ATTEMPT_RESET) {
+		if ( (rst_all_flts_flag == 0) && (type == MID_ATTEMPT_RESET) ) {
 			rst_all_flts_flag = 1;
-		   	ignore_nr_start_time = HAL_GetTick();
+			ignore_nr_start_time = HAL_GetTick();
 		}
 	}
 }
