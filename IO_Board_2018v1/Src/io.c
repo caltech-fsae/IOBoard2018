@@ -22,16 +22,16 @@ int flt_hit = 0;
 
 struct Sensors {
     // Raw values from ADCs
-    uint16_t apps1, apps2, bse1, bse2, currSense;
-    uint16_t prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
+    int apps1, apps2, bse1, bse2, currSense;
+    int prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
     float avg_apps1, avg_apps2, avg_bse1, avg_bse2, avg_curr;
     int ind_apps1, ind_apps2, ind_bse1, ind_bse2, ind_curr;
-    uint16_t data_apps1[APPS_AVG_SAMPLE_SIZE], data_apps2[APPS_AVG_SAMPLE_SIZE],
+    int data_apps1[APPS_AVG_SAMPLE_SIZE], data_apps2[APPS_AVG_SAMPLE_SIZE],
 		data_bse1[BSE_AVG_SAMPLE_SIZE], data_bse2[BSE_AVG_SAMPLE_SIZE],
 		data_curr[CURR_AVG_SAMPLE_SIZE];
 
     // Filtered / scaled values
-    uint16_t throttle, brake, current;
+    int throttle, brake, current;
 } sensors;
 
 struct Status {
@@ -234,8 +234,7 @@ void filterCurr() {
 
 void scaleThrottle() {
     //sensors.apps2 -= APPS_OFFSET;
-    sensors.throttle = (sensors.apps1 + sensors.apps2) / 2;
-
+    sensors.throttle = ((sensors.apps1 + sensors.apps2) / 2);
 }
 
 void scaleBrake() {
@@ -287,6 +286,15 @@ void init_sensors() {
 void updateInternalFaults() {
     status.isThrottle = getIsThrottle();
     status.isBrake = getIsBrake();
+
+    // ----------------------------------
+    // TODO @Potato @ElectronicToast FIX SHIT
+    sensors.throttle -= THROTTLE_THRESH;
+    sensors.throttle = (int) ((float) sensors.throttle * 1.46);
+    if (sensors.throttle < 0)
+    		sensors.throttle = 0;
+    // ----------------------------------
+
     status.flt_apps_mismatch = getAppsMismatch();
     status.flt_bse_mismatch = getBseMismatch();
     status.flt_bspd = getPotato();
@@ -301,7 +309,7 @@ void updateInternalFaults() {
     }
     else
     {
-    	status.internal_flt_nr = 0;
+    	status.internal_flt_nr = status.flt_bspd;
     	flt_hit = 0;
     	if(HAL_GetTick() - ignore_nr_start_time > 3000)
     	{
