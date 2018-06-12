@@ -12,75 +12,58 @@
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern ADC_HandleTypeDef hadc3;
-
 extern uint16_t adcValues[5];
 
 // Global Variables
-uint16_t rst_all_flts_flag = 0;
 int ignore_nr_start_time;
-int flt_hit = 0;
 
 struct Sensors {
     // Raw values from ADCs
-    int apps1, apps2, bse1, bse2, currSense;
-    int prevApps1, prevApps2, prevBse1, prevBse2, prevCurr;
-    float avg_apps1, avg_apps2, avg_bse1, avg_bse2, avg_curr;
-    int ind_apps1, ind_apps2, ind_bse1, ind_bse2, ind_curr;
-    int data_apps1[APPS_AVG_SAMPLE_SIZE], data_apps2[APPS_AVG_SAMPLE_SIZE],
-		data_bse1[BSE_AVG_SAMPLE_SIZE], data_bse2[BSE_AVG_SAMPLE_SIZE],
-		data_curr[CURR_AVG_SAMPLE_SIZE];
-
-    // Filtered / scaled values
+    int apps1, apps2, bse1, bse2, rawCurrent;
+    // Filtered and scaled values
     int throttle, brake, current;
 } sensors;
 
 struct Status {
     uint16_t isThrottle;
     uint16_t isBrake;
-
-    uint16_t flt_apps_mismatch;
-    uint16_t flt_bse_mismatch;
-
-    uint16_t internal_flt_r;
-    uint16_t internal_flt_nr;
-
-    uint16_t flt_bspd;        // Strictly a software indication of BSPD fault
-    uint16_t flt_bppc;
 } status;
 
+struct Faults {
+    uint16_t flt_apps_mismatch;
+    uint16_t flt_bse_mismatch;
+    uint16_t internal_flt_r;
+    uint16_t internal_flt_nr;
+    uint16_t flt_bspd;        // Strictly a software indication of BSPD fault
+    uint16_t flt_bppc;
+} faults;
+
+struct Flags {
+	uint16_t rst_all_flts;
+	uint16_t flt_hit;
+} flags;
+
+// #--------------------------# MAIN FUNCTIONS #---------------------------#
+
 void init(){
-  HAL_Delay(1000);
-  init_sensors();
-  clearInternalFaults();
-  rst_all_flts_flag = 0;
-  HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
-  HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
-  HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
-  HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, LO);
-  HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
-  HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);
-  while(HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD) == LO){}
+  HAL_Delay(STARTUP_GRACE_PERIOD);
+  clearFaults();
+  clearStatuses();
+  clearFlags();
+  clearLEDs();
+  while(getBspdFault()){}
 }
 
 void mainLoop(){
-	readApps(hadc3);
-	readBse(hadc1);
-	readCurr(hadc2);
+	readRawApps(hadc3);
+	readRawBse(hadc1);
+	readRawCurr(hadc2);
 
-	//gen_avg_bse();
-	//gen_avg_apps();
-	//gen_avg_curr();
-
-	scaleThrottle();
-	scaleBrake();
-	scaleCurrent();
-
-	//filterApps();
-	//filterBse();
-	//filterCurr();
-
-	updateInternalFaults();
+	updateSensors();
+	updateFaults();
+	updateStatuses();
 	updateLEDs();
+
 	assertFaults();
 
 	can_sendBrake();
@@ -89,231 +72,115 @@ void mainLoop(){
 
 // #--------------------------# READ ADC FUNCTIONS #---------------------------#
 
-void readApps(ADC_HandleTypeDef hadc) {
-	/*// Run first conversin on the APPS ADC group
-    HAL_ADC_Start(&hadc);
-    if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
-        // Read APPS1
-        sensors.apps1 = HAL_ADC_GetValue(&hadc);
-    }
-    HAL_ADC_Stop(&hadc);
-
-    // Run a second conversino on the same ADC (second channel)
-    HAL_ADC_Start(&hadc);
-    if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
-    	// Read APPS2
-        sensors.apps2 = HAL_ADC_GetValue(&hadc);
-    }
-    HAL_ADC_Stop(&hadc);*/
-
+void readRawApps(ADC_HandleTypeDef hadc) {
 	sensors.apps1 = adcValues[0];
 	sensors.apps2 = adcValues[1];
 }
 
 
-void readBse(ADC_HandleTypeDef hadc) {
-	/*// Run first conversion on the BSE ADC group
-	HAL_ADC_Start(&hadc);
-	if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
-		// Read BSE1
-		sensors.bse1 = HAL_ADC_GetValue(&hadc);
-	}
-	HAL_ADC_Stop(&hadc);
-
-	// Run a second conversion on the same ADC (second channel)
-	HAL_ADC_Start(&hadc);
-	if (HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY) == HAL_OK) {
-		// Read BSE2
-		sensors.bse2 = HAL_ADC_GetValue(&hadc);
-	}
-	HAL_ADC_Stop(&hadc);*/
+void readRawBse(ADC_HandleTypeDef hadc) {
 	sensors.bse1 = adcValues[2];
 	sensors.bse2 = adcValues[3];
 }
 
-
-void readCurr(ADC_HandleTypeDef hadc) {
-    /*HAL_ADC_Start(&hadc);
-    if (HAL_ADC_PollForConversion(&hadc, 100000) == HAL_OK) {
-        sensors.currSense = HAL_ADC_GetValue(&hadc);
-    }
-    HAL_ADC_Stop(&hadc);*/
-	sensors.currSense = adcValues[4];
+void readRawCurr(ADC_HandleTypeDef hadc) {
+	sensors.rawCurrent = adcValues[4];
 }
 
-
-// #-------------------------# PROCESSING FUNCTIONS #--------------------------#
-
-//Modify running average, for filtering purposes
-void gen_avg_apps() {
-  sensors.avg_apps1 += (float) sensors.apps1 / (float) APPS_AVG_SAMPLE_SIZE;
-  sensors.avg_apps1 -= (float) sensors.data_apps1[sensors.ind_apps1] / (float) APPS_AVG_SAMPLE_SIZE;
-  sensors.data_apps1[sensors.ind_apps1] = sensors.apps1;
-  sensors.ind_apps1 += 1;
-  sensors.ind_apps1 %= APPS_AVG_SAMPLE_SIZE;
-
-  sensors.avg_apps2 += (float) sensors.apps2 / (float) APPS_AVG_SAMPLE_SIZE;
-  sensors.avg_apps2 -= (float) sensors.data_apps2[sensors.ind_apps2] / (float) APPS_AVG_SAMPLE_SIZE;
-  sensors.data_apps2[sensors.ind_apps2] = sensors.apps2;
-  sensors.ind_apps2 += 1;
-  sensors.ind_apps2 %= APPS_AVG_SAMPLE_SIZE;
-}
-
-void gen_avg_bse() {
-  sensors.avg_bse1 += (float) sensors.bse1 / (float) BSE_AVG_SAMPLE_SIZE;
-  sensors.avg_bse1 -= (float) sensors.data_bse1[sensors.ind_bse1] / (float) BSE_AVG_SAMPLE_SIZE;
-  sensors.data_bse1[sensors.ind_bse1] = sensors.bse1;
-  sensors.ind_bse1 += 1;
-  sensors.ind_bse1 %= BSE_AVG_SAMPLE_SIZE;
-
-  sensors.avg_bse2 += (float) sensors.bse2 / (float) BSE_AVG_SAMPLE_SIZE;
-  sensors.avg_bse2 -= (float) sensors.data_bse2[sensors.ind_bse2] / (float) BSE_AVG_SAMPLE_SIZE;
-  sensors.data_bse2[sensors.ind_bse2] = sensors.bse2;
-  sensors.ind_bse2 += 1;
-  sensors.ind_bse2 %= BSE_AVG_SAMPLE_SIZE;
-}
-
-void gen_avg_curr() {
-  sensors.avg_curr += (float) sensors.currSense / (float) CURR_AVG_SAMPLE_SIZE;
-  sensors.avg_curr -= (float) sensors.data_curr[sensors.ind_curr] / (float) CURR_AVG_SAMPLE_SIZE;
-  sensors.data_curr[sensors.ind_curr] = sensors.currSense;
-  sensors.ind_curr += 1;
-  sensors.ind_curr %= CURR_AVG_SAMPLE_SIZE;
-}
-
-// Filter both APPS readings
-void filterApps() {
-    // Compute new value - if there is a huge difference, then assert the
-    // previous value but store it so that it can be compared with the
-    // reading from the next iteration. Else, the new value goes through.
-    if (abs(sensors.avg_apps1 - sensors.apps1) > APPS_VAL_THRESH) {
-        sensors.apps1 = sensors.prevApps1;
-      } else {
-        sensors.prevApps1 = sensors.apps1;
-      }
-
-      if (abs(sensors.avg_apps2 - sensors.apps2) > APPS_VAL_THRESH) {
-        sensors.apps2 = sensors.prevApps2;
-      } else {
-        sensors.prevApps2 = sensors.apps2;
-      }
-}
-
-// Filter a single BSE reading
-void filterBse() {
-    // Compute new value - if there is a huge difference, then assert the
-    // previous value but store it so that it can be compared with the
-    // reading from the next iteration. Else, the new value goes through.
-    if (abs(sensors.avg_bse1 - sensors.bse1) > BSE_VAL_THRESH) {
-        sensors.bse1 = sensors.prevBse1;
-      } else {
-        sensors.prevBse1 = sensors.bse1;
-      }
-
-      if (abs(sensors.avg_bse2 - sensors.bse2) > BSE_VAL_THRESH) {
-        sensors.bse2 = sensors.prevBse2;
-      } else {
-        sensors.prevBse2 = sensors.prevBse2;
-      }
-}
-
-/**
- * DEPRECATED
- */
-// Filters the current sensor reading
-void filterCurr() {
-    // Compute new value - if there is a huge difference, then assert the
-    // previous value but store it so that it can be compared with the
-    // reading from the next iteration. Else, the new value goes through.
-    if (abs(sensors.avg_curr - sensors.currSense) > CURRSENSE_VAL_THRESH) {
-      sensors.currSense = sensors.prevCurr;
-    } else {
-      sensors.prevCurr = sensors.currSense;
-    }
-}
-
-void scaleThrottle() {
-    //sensors.apps2 -= APPS_OFFSET;
+void updateThrottle() {
     sensors.throttle = ((sensors.apps1 + sensors.apps2) / 2);
+    sensors.throttle -= THROTTLE_THRESH;
+    if (sensors.throttle < 0)
+		sensors.throttle = 0;
+    else
+    	sensors.throttle = (int) ((float) sensors.throttle * 2.2);
 }
 
-void scaleBrake() {
-    //sensors.bse2 -= BSE_OFFSET;
+void updateBrake() {
     sensors.brake = (sensors.bse1 + sensors.bse2) / 2;
 }
 
-void scaleCurrent() {
-    sensors.current = sensors.currSense;
+void updateCurrent() {
+    sensors.current = sensors.rawCurrent;
 }
 
+void updateSensors() {
+	updateThrottle();
+	updateBrake();
+	updateCurrent();
+}
 
 void updateLEDs() {
 	// TODO(@ElectronicToast): RESTORE MISMATCH INDICATORS
-	//HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, status.flt_bse_mismatch);
+	/* BSE LED */
 	HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, status.isBrake);
-	//HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, status.flt_apps_mismatch);
+	/* APPS LED */
 	HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, status.isThrottle);
-
-	HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, status.flt_bspd);
-	HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, status.flt_bppc);
-	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, status.internal_flt_r);
-	HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, status.internal_flt_nr);
+	/* BSPD LED */
+	HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, faults.flt_bspd);
+	/* BPPC LED */
+	HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, faults.flt_bppc);
+	/* FLT_R LED */
+	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, faults.internal_flt_r);
+	/* FLT_NR LED */
+	HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, faults.internal_flt_nr);
 }
 
 
-void clearInternalFaults() {
-    status.isThrottle = 0;
-    status.flt_apps_mismatch = 0;
-
-    status.isBrake = 0;
-    status.flt_bse_mismatch = 0;
-
-    status.flt_bspd = 0;
-    status.flt_bppc = 0;
-
-    status.internal_flt_r = 0;
-    status.internal_flt_nr = 0;
-}
-
-void init_sensors() {
-  sensors.ind_apps1 = sensors.ind_apps2 = sensors.ind_bse1 = sensors.ind_bse2 = sensors.ind_curr = 0;
-  sensors.avg_bse1 = sensors.avg_bse2 = sensors.avg_apps1 = sensors.avg_apps2 = sensors.avg_curr = 0.0;
-  sensors.prevCurr = sensors.prevBse1 = sensors.prevBse2 = sensors.prevApps1 = sensors.prevApps2 = 0;
+void clearLEDs() {
+	HAL_GPIO_WritePin(GROUP_BSE_LED, PIN_BSE_LED, LO);
+    HAL_GPIO_WritePin(GROUP_APPS_LED, PIN_APPS_LED, LO);
+    HAL_GPIO_WritePin(GROUP_BSPD_LED, PIN_BSPD_LED, LO);
+    HAL_GPIO_WritePin(GROUP_BPPC_LED, PIN_BPPC_LED, LO);
+    HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, LO);
+    HAL_GPIO_WritePin(GROUP_FLT_NR_LED, PIN_FLT_NR_LED, LO);
 }
 
 
+void clearFaults() {
+    faults.flt_apps_mismatch = 0;
+    faults.flt_bse_mismatch = 0;
+    faults.flt_bspd = 0;
+    faults.flt_bppc = 0;
+    faults.internal_flt_r = 0;
+    faults.internal_flt_nr = 0;
+}
 
-void updateInternalFaults() {
+void clearStatuses() {
+	status.isBrake = 0;
+	status.isThrottle = 0;
+}
+
+void clearFlags() {
+	flags.rst_all_flts = 0;
+	flags.flt_hit = 0;
+}
+
+void updateStatuses() {
     status.isThrottle = getIsThrottle();
     status.isBrake = getIsBrake();
+}
 
-    // ----------------------------------
-    // TODO @Potato @ElectronicToast FIX SHIT
-    sensors.throttle -= THROTTLE_THRESH;
-    sensors.throttle = (int) ((float) sensors.throttle * 1.46);
-    if (sensors.throttle < 0)
-    		sensors.throttle = 0;
-    // ----------------------------------
-
-    status.flt_apps_mismatch = getAppsMismatch();
-    status.flt_bse_mismatch = getBseMismatch();
-    status.flt_bspd = getPotato();
-    status.flt_bppc = getBppcFault();
+void updateFaults() {
+    faults.flt_apps_mismatch = getAppsMismatch();
+    faults.flt_bse_mismatch = getBseMismatch();
+    faults.flt_bspd = getBspdFault();
+    faults.flt_bppc = getBppcFault();
 
     // Set main fault flags (ACTIVE HIGH !!!)
-    status.internal_flt_r  = status.flt_apps_mismatch || status.flt_bse_mismatch || status.flt_bppc;
-    if(rst_all_flts_flag == 0)
+    faults.internal_flt_r  = faults.flt_apps_mismatch || faults.flt_bse_mismatch || faults.flt_bppc;
+    if(flags.rst_all_flts == 0)
     {
     //	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, getFltNR());
-    	status.internal_flt_nr = status.flt_bspd || getFltNR();
+    	faults.internal_flt_nr = faults.flt_bspd || getFltNR();
     }
     else
     {
-    	status.internal_flt_nr = status.flt_bspd;
-    	flt_hit = 0;
-    	if(HAL_GetTick() - ignore_nr_start_time > 3000)
+    	faults.internal_flt_nr = faults.flt_bspd;
+    	flags.flt_hit = 0;
+    	if(HAL_GetTick() - ignore_nr_start_time > IGNORE_FLT_NR_GRACE_PERIOD)
     	{
-    		rst_all_flts_flag = 0;
+    		flags.rst_all_flts = 0;
     	}
     }
 }
@@ -323,8 +190,8 @@ void updateInternalFaults() {
 void assertFaults() {
     // Pull FLT_R line low if there is a flt_r
     // (inversion provided by hardware)
-    HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT, status.internal_flt_r);
-    HAL_GPIO_WritePin(GROUP_MCU_FLT_NR, PIN_MCU_FLT_NR, status.internal_flt_nr);
+    HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT, faults.internal_flt_r);
+    HAL_GPIO_WritePin(GROUP_MCU_FLT_NR, PIN_MCU_FLT_NR, faults.internal_flt_nr);
 }
 
 
@@ -337,7 +204,7 @@ uint16_t getFltR() {
 }
 
 uint16_t getFltNR() {
-	if(flt_hit) {
+	if(flags.flt_hit) {
 		return 1;
 	}
     static uint16_t deb_ctr = 0;
@@ -350,7 +217,7 @@ uint16_t getFltNR() {
     {
     		deb_ctr = 0;
     		if(HAL_GPIO_ReadPin(GROUP_FLT_NR, PIN_FLT_NR) == LO) {
-    			flt_hit = 1;
+    			flags.flt_hit = 1;
     			return 1;
     		}
     		return 0;
@@ -358,11 +225,11 @@ uint16_t getFltNR() {
 }
 
 uint16_t getIsThrottle() {
-    return (sensors.throttle > THROTTLE_THRESH) ? 1 : 0;
+    return (sensors.throttle > 0);
 }
 
 uint16_t getIsBrake() {
-    return (sensors.brake > BRAKE_THRESH) ? 1 : 0;
+    return (sensors.brake > 0);
 }
 
 uint16_t getAppsMismatch() {
@@ -373,12 +240,12 @@ uint16_t getBseMismatch() {
     return (abs(sensors.bse1 - sensors.bse2) > BSE_DIFF_THRESH);
 }
 
-uint16_t getPotato() {
-    return !(HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD));
+uint16_t getBspdFault() {
+    return HAL_GPIO_ReadPin(GROUP_BSPD, PIN_BSPD) == LO;
 }
 
 uint16_t getBppcFault() {
-    if (status.flt_bppc) {
+    if (faults.flt_bppc) {
       if (status.isThrottle == 0) {
         return 0;
       } else {
@@ -395,8 +262,8 @@ void readCANMessages() {
 	can_msg_t msg;
 	while(CAN_dequeue_msg(&msg)) {
 		uint16_t type = 0b0000011111110000 & msg.identifier;
-		if ( (rst_all_flts_flag == 0) && (type == MID_ATTEMPT_RESET) ) {
-			rst_all_flts_flag = 1;
+		if ( (flags.rst_all_flts == 0) && (type == MID_ATTEMPT_RESET) ) {
+			flags.rst_all_flts = 1;
 			ignore_nr_start_time = HAL_GetTick();
 		}
 	}
@@ -433,8 +300,8 @@ void can_sendPedalStatus() {
     //      [0] - brake pedal status (active high pressed)
 
     // (*) Send throttle status and mismatch fault
-    uint16_t msg = ( (status.flt_apps_mismatch << 3)
-				   | (status.flt_bse_mismatch << 2)
+    uint16_t msg = ( (faults.flt_apps_mismatch << 3)
+				   | (faults.flt_bse_mismatch << 2)
 				   | (status.isThrottle << 1)
 				   | (status.isBrake));
     can_msg_t can_throttle_msg;
@@ -450,8 +317,8 @@ void can_sendFaultStatus() {
     //      [1] - BPPC fault (active high)
     //      [0] - BSPD fault (active high)
 
-    uint16_t msg = ( (status.flt_bppc << 1)
-				   | (status.flt_bspd) );
+    uint16_t msg = ( (faults.flt_bppc << 1)
+				   | (faults.flt_bspd) );
     can_msg_t can_faults_msg;
     CAN_short_msg(&can_faults_msg, create_ID(BID_IO, MID_BPPC_BSPD),
             msg);

@@ -14,6 +14,8 @@
 #include "can.h"
 #include "identifiers.h"
 
+/* Hardware Definitions */
+/* Pin Values */
 #define	PIN_APPS1			GPIO_PIN_1
 #define	PIN_APPS2			GPIO_PIN_2
 #define	PIN_BSE1			GPIO_PIN_3
@@ -30,7 +32,7 @@
 #define PIN_BSPD			GPIO_PIN_6
 #define PIN_MCU_FLT			GPIO_PIN_7
 #define PIN_MCU_FLT_NR		GPIO_PIN_8
-
+/* Port Values */
 #define	GROUP_APPS1			GPIOA
 #define	GROUP_APPS2			GPIOA
 #define	GROUP_BSE1			GPIOA
@@ -47,53 +49,40 @@
 #define GROUP_BSPD			GPIOA
 #define GROUP_MCU_FLT		GPIOA
 #define GROUP_MCU_FLT_NR	GPIOA
-
 #define HI                  GPIO_PIN_SET
 #define LO                  GPIO_PIN_RESET
 
-#define APPS_VAL_THRESH         	1000
-#define BSE_VAL_THRESH          	1000
-#define CURRSENSE_VAL_THRESH    	1000
+/* Sensor Thresholds and Offsets */
+#define APPS_DIFF_THRESH        				1500
+#define BSE_DIFF_THRESH         				1500
 
-#define BPPC_QTR_THROTTLE       	1000         // 25% of pedal travel reading
-#define BPPC_BRK_THRESH         	1000         // Is braking
-#define BPPC_STOP_THRESH        	1000           //5% of APPS travel reading
+#define APPS_OFFSET               				1000
+#define BSE_OFFSET                				1000
 
-#define APPS_DIFF_THRESH        	1500
-#define BSE_DIFF_THRESH         	1500
+#define THROTTLE_THRESH							1800	// Out of 4096
+#define BRAKE_THRESH							2000	// Out of 4096
 
-#define APPS_OFFSET               1000
-#define BSE_OFFSET                1000
-
-#define THROTTLE_THRESH			1800			// Out of 4096
-#define BRAKE_THRESH				2000			// Out of 4096
-
-#define APPS_AVG_SAMPLE_SIZE 	100 // Sample sizes for running averages
-#define BSE_AVG_SAMPLE_SIZE 		100
-#define CURR_AVG_SAMPLE_SIZE 	100
+/* Time Constants */
+#define STARTUP_GRACE_PERIOD					1000
+#define IGNORE_FLT_NR_GRACE_PERIOD				1000
 
 /* Function Prototypes */
-void readApps(ADC_HandleTypeDef hadc3);
-void readBse(ADC_HandleTypeDef hadc1);
-void readCurr(ADC_HandleTypeDef hadc2);
+void readRawApps(ADC_HandleTypeDef hadc3);
+void readRawBse(ADC_HandleTypeDef hadc1);
+void readRawCurr(ADC_HandleTypeDef hadc2);
 
-void gen_avg_bse();
-void gen_avg_apps();
-void gen_avg_curr();
+void updateThrottle();
+void updateBrake();
+void updateCurrent();
 
-void filterApps();
-void filterBse();
-void filterCurr();
-
-void scaleThrottle();
-void scaleBrake();
-void scaleCurrent();
-
-void init_sensors();
-
+void updateSensors();
 void updateLEDs();
-void clearInternalFaults();
-void updateInternalFaults();
+void clearLEDs();
+void clearFaults();
+void clearStatuses();
+void clearFlags();
+void updateFaults();
+void updateStatuses();
 void assertFaults();
 
 uint16_t getFltR();
@@ -102,7 +91,7 @@ uint16_t getIsThrottle();
 uint16_t getIsBrake();
 uint16_t getAppsMismatch();
 uint16_t getBseMismatch();
-uint16_t getPotato();
+uint16_t getBspdFault();
 uint16_t getBppcFault();
 
 void can_sendBrake();
@@ -113,8 +102,8 @@ void readCANMessages();
 void sendCANStatuses();
 void checkCANMessages();
 void sendHeartbeat();
-void mainLoop();
 
 void init();
+void mainLoop();
 
 #endif /* IO_H_ */
