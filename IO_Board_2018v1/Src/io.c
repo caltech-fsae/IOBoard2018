@@ -14,6 +14,9 @@ extern ADC_HandleTypeDef hadc2;
 extern ADC_HandleTypeDef hadc3;
 extern uint16_t adcValues[5];
 
+int can_nr = 0;
+int flt_delta = 0;
+int just_fault = 0;
 // Global Variables
 int ignore_nr_start_time;
 
@@ -48,6 +51,7 @@ struct Flags {
 void init(){
   HAL_Delay(STARTUP_GRACE_PERIOD);
   clearFaults();
+  faults.flt_bspd = 0;
   clearStatuses();
   clearFlags();
   clearLEDs();
@@ -68,6 +72,12 @@ void mainLoop(){
 
 	can_sendBrake();
 	can_sendThrottle();
+	if(flt_delta) {
+		can_msg_t msg;
+		CAN_short_msg(&msg, create_ID(BID_IO, MID_FLT_CLEAR), 0);
+		CAN_queue_transmit(&msg);
+	}
+	can_nr = 0;
 }
 
 // #--------------------------# READ ADC FUNCTIONS #---------------------------#
@@ -140,10 +150,10 @@ void clearLEDs() {
 void clearFaults() {
     faults.flt_apps_mismatch = 0;
     faults.flt_bse_mismatch = 0;
-    faults.flt_bspd = 0;
+    //faults.flt_bspd = 0;
     faults.flt_bppc = 0;
     faults.internal_flt_r = 0;
-    faults.internal_flt_nr = 0;
+    //faults.internal_flt_nr = 0;
 }
 
 void clearStatuses() {
@@ -164,15 +174,26 @@ void updateStatuses() {
 void updateFaults() {
     faults.flt_apps_mismatch = getAppsMismatch();
     faults.flt_bse_mismatch = getBseMismatch();
-    faults.flt_bspd = getBspdFault();
+    faults.flt_bspd = faults.flt_bspd || getBspdFault();
     faults.flt_bppc = getBppcFault();
 
     // Set main fault flags (ACTIVE HIGH !!!)
     faults.internal_flt_r  = faults.flt_apps_mismatch || faults.flt_bse_mismatch || faults.flt_bppc;
+    just_fault |= faults.internal_flt_r;
+    if(just_fault && !faults.internal_flt_r) {
+    	flt_delta = 1;
+    	just_fault = 0;
+    }
+
     if(flags.rst_all_flts == 0)
     {
     //	HAL_GPIO_WritePin(GROUP_FLT_R_LED, PIN_FLT_R_LED, getFltNR());
-    	faults.internal_flt_nr = faults.flt_bspd || getFltNR();
+    	faults.internal_flt_nr = faults.flt_bspd || getFltNR() || can_nr;
+    	if(faults.internal_flt_nr) {
+    		can_msg_t msg;
+			CAN_short_msg(&msg, create_ID(BID_IO, MID_FAULT_NR), 0);
+			CAN_queue_transmit(&msg);
+    	}
     }
     else
     {
@@ -182,6 +203,15 @@ void updateFaults() {
     	{
     		flags.rst_all_flts = 0;
     	}
+    	if(!faults.internal_flt_nr) {
+    		can_msg_t msg;
+    		CAN_short_msg(&msg, create_ID(BID_IO, MID_PROVIDE_NR_RESET_CONSENT), 0);
+    		CAN_queue_transmit(&msg);
+    	} else {
+    		can_msg_t msg;
+    		CAN_short_msg(&msg, create_ID(BID_IO, MID_FAULT_NR), 0);
+    		CAN_queue_transmit(&msg);
+    	}
     }
 }
 
@@ -190,6 +220,11 @@ void updateFaults() {
 void assertFaults() {
     // Pull FLT_R line low if there is a flt_r
     // (inversion provided by hardware)
+	if(faults.internal_flt_r) {
+		can_msg_t msg;
+		CAN_short_msg(&msg, create_ID(BID_IO, MID_FAULT), 0);
+		CAN_queue_transmit(&msg);
+	}
     HAL_GPIO_WritePin(GROUP_MCU_FLT, PIN_MCU_FLT, faults.internal_flt_r);
     HAL_GPIO_WritePin(GROUP_MCU_FLT_NR, PIN_MCU_FLT_NR, faults.internal_flt_nr);
 }
@@ -265,6 +300,10 @@ void readCANMessages() {
 		if ( (flags.rst_all_flts == 0) && (type == MID_ATTEMPT_RESET) ) {
 			flags.rst_all_flts = 1;
 			ignore_nr_start_time = HAL_GetTick();
+		} else if (type == MID_FAULT_NR) {
+			can_nr = 1;
+		} else if (type == MID_FLT_CLEAR_ACK) {
+			flt_delta = 0;
 		}
 	}
 }

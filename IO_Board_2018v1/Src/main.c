@@ -111,7 +111,7 @@ int main(void)
   Schedule schedule;
   MakeSchedule(&schedule, 4);
   AddTask(&schedule, &mainLoop, 437);
-  AddTask(&schedule, &readCANMessages, 500);
+  AddTask(&schedule, &readCANMessages, 1);
   AddTask(&schedule, &sendCANStatuses, 758);
   AddTask(&schedule, &sendHeartbeat, 1000);
 

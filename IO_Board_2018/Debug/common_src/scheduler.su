@@ -1,0 +1,4 @@
+scheduler.c:4:6:MakeSchedule	16	static
+scheduler.c:11:5:AddTask	16	static
+scheduler.c:23:6:RunSchedule	16	static
+scheduler.c:30:6:DeleteSchedule	16	static

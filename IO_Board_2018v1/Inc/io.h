@@ -14,6 +14,7 @@
 #include "can.h"
 #include "identifiers.h"
 
+#define MAIN_LOOP_FREQ 437;
 /* Hardware Definitions */
 /* Pin Values */
 #define	PIN_APPS1			GPIO_PIN_1
